@@ -74,6 +74,7 @@ gtk_instantiate(const LV2UI_Descriptor*   descriptor,
 			write_function, controller, &self->tl, features);
 	if (!self->ui) {
 		free(self);
+        fprintf(stderr, "error: ui object not returned by instantiate.\n");
 		return NULL;
 	}
 
