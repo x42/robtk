@@ -1130,11 +1130,19 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 	if (!self->ui) {
 		posrb_free(self->rb);
 		free(self);
+		fprintf(stderr, "error: ui object not returned by instantiate.\n");
 		return NULL;
 	}
 	if (!self->tl || !self->tl->expose_event || !self->tl->size_request) {
 		posrb_free(self->rb);
 		free(self);
+		if (!self->tl) {
+		    fprintf(stderr, "error: tl object not returned by instantiate.\n");
+		} else if(!self->tl->expose_event) {
+		    fprintf(stderr, "error: expose_event not set for ui\n");
+		} else {
+		    fprintf(stderr, "error: size_request not set for ui\n");
+		}
 		return NULL;
 	}
 
