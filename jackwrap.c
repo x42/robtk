@@ -241,7 +241,7 @@ static float *
 delay_port (struct DelayBuffer *dly, uint32_t n_samples, float *in)
 {
 	uint32_t pos = 0;
-	const uint32_t delay = dly->wanted_delay;
+	const int delay = dly->wanted_delay;
 	const float * const input = in;
 	float* const output  = dly->out_buffer;
 
@@ -256,7 +256,7 @@ delay_port (struct DelayBuffer *dly, uint32_t n_samples, float *in)
 
 	// fade if delaytime changes
 	if (dly->c_dly != delay) {
-		const int fade_len = (n_samples >= FADE_LEN) ? FADE_LEN : n_samples / 2;
+		const uint32_t fade_len = (n_samples >= FADE_LEN) ? FADE_LEN : n_samples / 2;
 
 		// fade out
 		for (; pos < fade_len; pos++) {
@@ -544,7 +544,6 @@ static int init_jack(const char *client_name) {
 	jack_on_shutdown (j_client, jack_shutdown, NULL);
 #endif
 	j_samplerate=jack_get_sample_rate (j_client);
-	jack_latency_cb (NULL);
 	return (0);
 }
 
@@ -591,6 +590,7 @@ static int jack_portsetup(void) {
 			return (-1);
 		}
 	}
+	jack_latency_cb (NULL);
 	return (0);
 }
 
