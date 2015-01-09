@@ -227,6 +227,8 @@ uint32_t  portmap_atom_from_ui = -1;
 static uint32_t uri_to_id(LV2_URI_Map_Callback_Data callback_data, const char* uri);
 
 struct DelayBuffer **delayline = NULL;
+uint32_t worst_capture_latency = 0;
+uint32_t plugin_latency = 0;
 
 /******************************************************************************
  * Delayline for latency compensation
@@ -425,14 +427,6 @@ int process (jack_nframes_t nframes, void *arg) {
 	j_transport.bpm      = pos.beats_per_minute;
 	j_transport.rolling  = rolling;
 
-	/* prepare latency compensation */
-	uint32_t worst_capture_latency = 0;
-	for (uint32_t i=0; i < inst->nports_audio_in; i++) {
-		if (delayline[i]->port_latency.max > worst_capture_latency) {
-			worst_capture_latency = delayline[i]->port_latency.max;
-		}
-	}
-
 	/* [re] connect jack audio buffers */
 	for (uint32_t i=0 ; i < inst->nports_audio_out; i++) {
 		plugin_dsp->connect_port(plugin_instance, portmap_a_out[i], jack_port_get_buffer (output_port[i], nframes));
@@ -446,12 +440,8 @@ int process (jack_nframes_t nframes, void *arg) {
 				);
 	}
 
-
 	/* run the plugin */
 	plugin_dsp->run(plugin_instance, nframes);
-
-	// TODO set latency of output ports
-	// -> check if plugin announces latency
 
 	/* create port-events for change values */
 	// TODO only if UI..?
@@ -459,6 +449,12 @@ int process (jack_nframes_t nframes, void *arg) {
 		if (inst->ports[portmap_rctl[p]].porttype != CONTROL_OUT) continue;
 
 		if (plugin_ports_pre[p] != plugin_ports_post[p]) {
+#if 0
+			if (TODO this port reportsLatency) {
+				plugin_latency = rintf(plugin_ports_pre[p]);
+				jack_recompute_total_latencies(j_client);
+			}
+#endif
 			if (jack_ringbuffer_write_space(rb_ctrl_to_ui) >= sizeof(uint32_t) + sizeof(float)) {
 				jack_ringbuffer_write(rb_ctrl_to_ui, (char *) &portmap_rctl[p], sizeof(uint32_t));
 				jack_ringbuffer_write(rb_ctrl_to_ui, (char *) &plugin_ports_pre[p], sizeof(float));
@@ -512,11 +508,50 @@ void jack_shutdown (void *arg) {
 	pthread_cond_signal (&data_ready);
 }
 
-int jack_latency_cb (void *arg) {
+int jack_graph_order_cb (void *arg) {
+	worst_capture_latency = 0;
 	for (uint32_t i = 0; i < inst->nports_audio_in; i++) {
 		jack_port_get_latency_range(input_port[i], JackCaptureLatency, &(delayline[i]->port_latency));
+		if (delayline[i]->port_latency.max > worst_capture_latency) {
+			worst_capture_latency = delayline[i]->port_latency.max;
+		}
 	}
 	return 0;
+}
+
+void jack_latency_cb (jack_latency_callback_mode_t mode, void *arg) {
+	// assume 1 -> 1 map
+	// TODO add systemic latency of plugin (currently no robtk plugins add latency)
+	jack_graph_order_cb(NULL); // update worst-case latency, delayline alignment
+	if (mode == JackCaptureLatency) {
+		for (uint32_t i = 0; i < inst->nports_audio_out; i++) {
+			jack_latency_range_t r;
+			if (i < inst->nports_audio_in) {
+				const uint32_t port_delay = worst_capture_latency - delayline[i]->port_latency.max;
+				jack_port_get_latency_range(input_port[i], JackCaptureLatency, &r);
+				r.min += port_delay;
+				r.max += port_delay;
+			} else {
+				r.min = r.max = 0;
+			}
+			r.min += plugin_latency;
+			r.max += plugin_latency;
+			jack_port_set_latency_range(output_port[i], JackCaptureLatency, &r);
+		}
+	} else { // JackPlaybackLatency
+		for (uint32_t i = 0; i < inst->nports_audio_in; i++) {
+			const uint32_t port_delay = worst_capture_latency - delayline[i]->port_latency.max;
+			jack_latency_range_t r;
+			if (i < inst->nports_audio_out) {
+				jack_port_get_latency_range(output_port[i], JackPlaybackLatency, &r);
+			} else {
+				r.min = r.max = 0;
+			}
+			r.min += port_delay + plugin_latency;
+			r.max += port_delay + plugin_latency;
+			jack_port_set_latency_range(input_port[i], JackPlaybackLatency, &r);
+		}
+	}
 }
 
 static int init_jack(const char *client_name) {
@@ -538,7 +573,8 @@ static int init_jack(const char *client_name) {
 	}
 
 	jack_set_process_callback (j_client, process, 0);
-	jack_set_graph_order_callback (j_client, jack_latency_cb, 0);
+	jack_set_graph_order_callback (j_client, jack_graph_order_cb, 0);
+	jack_set_latency_callback(j_client, jack_latency_cb, 0);
 
 #ifndef WIN32
 	jack_on_shutdown (j_client, jack_shutdown, NULL);
@@ -590,7 +626,8 @@ static int jack_portsetup(void) {
 			return (-1);
 		}
 	}
-	jack_latency_cb (NULL);
+	jack_graph_order_cb (NULL); // query port latencies
+	jack_recompute_total_latencies(j_client);
 	return (0);
 }
 
