@@ -25,6 +25,14 @@
 #define UI_UPDATE_FPS 25
 #endif
 
+#ifndef MAXDELAY
+#define MAXDELAY 192001 // delayline max possible delay
+#endif
+
+#ifndef MAXPERIOD
+#define MAXPERIOD 8192 // delayline - max period size (jack-period)
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifndef _GNU_SOURCE
@@ -155,6 +163,16 @@ enum PortType {
 	ATOM_OUT
 };
 
+struct DelayBuffer {
+	jack_latency_range_t port_latency;
+	int wanted_delay;
+	int c_dly; // current delay
+	int w_ptr;
+	int r_ptr;
+	float out_buffer[MAXPERIOD]; // TODO dynamically allocate, use jack-period
+	float delay_buffer[MAXDELAY];
+};
+
 struct LV2Port {
 	const char *name;
 	enum PortType porttype;
@@ -207,6 +225,74 @@ uint32_t  portmap_atom_to_ui = -1;
 uint32_t  portmap_atom_from_ui = -1;
 
 static uint32_t uri_to_id(LV2_URI_Map_Callback_Data callback_data, const char* uri);
+
+struct DelayBuffer **delayline = NULL;
+
+/******************************************************************************
+ * Delayline for latency compensation
+ */
+#define FADE_LEN (16)
+
+#define INCREMENT_PTRS \
+		dly->r_ptr = (dly->r_ptr + 1) % MAXDELAY; \
+		dly->w_ptr = (dly->w_ptr + 1) % MAXDELAY;
+
+static float *
+delay_port (struct DelayBuffer *dly, uint32_t n_samples, float *in)
+{
+	uint32_t pos = 0;
+	const uint32_t delay = dly->wanted_delay;
+	const float * const input = in;
+	float* const output  = dly->out_buffer;
+
+	if (dly->c_dly == delay && delay == 0) {
+		// only copy data into buffer in case delay time changes
+		for (; pos < n_samples; pos++) {
+			dly->delay_buffer[ dly->w_ptr ] = input[pos];
+			INCREMENT_PTRS;
+		}
+		return in;
+	}
+
+	// fade if delaytime changes
+	if (dly->c_dly != delay) {
+		const int fade_len = (n_samples >= FADE_LEN) ? FADE_LEN : n_samples / 2;
+
+		// fade out
+		for (; pos < fade_len; pos++) {
+			const float gain = (float)(fade_len - pos) / (float)fade_len;
+			dly->delay_buffer[ dly->w_ptr ] = input[pos];
+			output[pos] = dly->delay_buffer[ dly->r_ptr ] * gain;
+			INCREMENT_PTRS;
+		}
+
+		// update read pointer
+		dly->r_ptr += dly->c_dly - delay;
+		if (dly->r_ptr < 0) {
+			dly->r_ptr -= MAXDELAY * floor(dly->r_ptr / (float)MAXDELAY);
+		}
+
+		//printf("Delay changed %d -> %d\n", dly->c_dly, delay); // DEBUG
+		dly->r_ptr = dly->r_ptr % MAXDELAY;
+		dly->c_dly = delay;
+
+		// fade in
+		for (; pos < 2 * fade_len; pos++) {
+			const float gain = (float)(pos - fade_len) / (float)fade_len;
+			dly->delay_buffer[ dly->w_ptr ] = input[pos];
+			output[pos] = dly->delay_buffer[ dly->r_ptr ] * gain;
+			INCREMENT_PTRS;
+		}
+	}
+
+	for (; pos < n_samples; pos++) {
+		dly->delay_buffer[ dly->w_ptr ] = input[pos];
+		output[pos] = dly->delay_buffer[ dly->r_ptr ];
+		INCREMENT_PTRS;
+	}
+
+	return dly->out_buffer;
+}
 
 
 ///////////////////////////
@@ -331,14 +417,6 @@ int process (jack_nframes_t nframes, void *arg) {
 		atom_out->atom.size = inst->min_atom_bufsiz;
 	}
 
-	/* [re] connect jack audio buffers */
-	for (uint32_t i=0; i < inst->nports_audio_in; i++) {
-		plugin_dsp->connect_port(plugin_instance, portmap_a_in[i], jack_port_get_buffer (input_port[i], nframes));
-	}
-	for (uint32_t i=0 ; i < inst->nports_audio_out; i++) {
-		plugin_dsp->connect_port(plugin_instance, portmap_a_out[i], jack_port_get_buffer (output_port[i], nframes));
-	}
-
 	/* make a backup copy, to see what was changed */
 	memcpy(plugin_ports_post, plugin_ports_pre, inst->nports_ctrl * sizeof(float));
 
@@ -347,8 +425,33 @@ int process (jack_nframes_t nframes, void *arg) {
 	j_transport.bpm      = pos.beats_per_minute;
 	j_transport.rolling  = rolling;
 
+	/* prepare latency compensation */
+	uint32_t worst_capture_latency = 0;
+	for (uint32_t i=0; i < inst->nports_audio_in; i++) {
+		if (delayline[i]->port_latency.max > worst_capture_latency) {
+			worst_capture_latency = delayline[i]->port_latency.max;
+		}
+	}
+
+	/* [re] connect jack audio buffers */
+	for (uint32_t i=0 ; i < inst->nports_audio_out; i++) {
+		plugin_dsp->connect_port(plugin_instance, portmap_a_out[i], jack_port_get_buffer (output_port[i], nframes));
+	}
+
+	for (uint32_t i=0; i < inst->nports_audio_in; i++) {
+		delayline[i]->wanted_delay = worst_capture_latency - delayline[i]->port_latency.max;
+		plugin_dsp->connect_port(
+				plugin_instance, portmap_a_in[i],
+				delay_port(delayline[i], nframes, (float*) jack_port_get_buffer (input_port[i], nframes))
+				);
+	}
+
+
 	/* run the plugin */
 	plugin_dsp->run(plugin_instance, nframes);
+
+	// TODO set latency of output ports
+	// -> check if plugin announces latency
 
 	/* create port-events for change values */
 	// TODO only if UI..?
@@ -409,6 +512,13 @@ void jack_shutdown (void *arg) {
 	pthread_cond_signal (&data_ready);
 }
 
+int jack_latency_cb (void *arg) {
+	for (uint32_t i = 0; i < inst->nports_audio_in; i++) {
+		jack_port_get_latency_range(input_port[i], JackCaptureLatency, &(delayline[i]->port_latency));
+	}
+	return 0;
+}
+
 static int init_jack(const char *client_name) {
 	jack_status_t status;
 	j_client = jack_client_open (client_name, JackNoStartServer, &status);
@@ -428,17 +538,20 @@ static int init_jack(const char *client_name) {
 	}
 
 	jack_set_process_callback (j_client, process, 0);
+	jack_set_graph_order_callback (j_client, jack_latency_cb, 0);
 
 #ifndef WIN32
 	jack_on_shutdown (j_client, jack_shutdown, NULL);
 #endif
 	j_samplerate=jack_get_sample_rate (j_client);
+	jack_latency_cb (NULL);
 	return (0);
 }
 
 static int jack_portsetup(void) {
 	/* Allocate data structures that depend on the number of ports. */
 	input_port = (jack_port_t **) malloc (sizeof (jack_port_t *) * inst->nports_audio_in);
+	delayline = (struct DelayBuffer **) calloc (inst->nports_audio_in, sizeof (struct DelayBuffer *));
 
 	for (uint32_t i = 0; i < inst->nports_audio_in; i++) {
 		if ((input_port[i] = jack_port_register (j_client,
@@ -447,6 +560,7 @@ static int jack_portsetup(void) {
 			fprintf (stderr, "cannot register input port \"%s\"!\n", inst->ports[portmap_a_in[i]].name);
 			return (-1);
 		}
+		delayline[i] = (struct DelayBuffer *) calloc (1, sizeof (struct DelayBuffer));
 	}
 
 	output_port = (jack_port_t **) malloc (sizeof (jack_port_t *) * inst->nports_audio_out);
@@ -564,6 +678,13 @@ static void cleanup(int sig) {
 
 	free(input_port);
 	free(output_port);
+
+	if (delayline) {
+		for (uint32_t i = 0; i < inst->nports_audio_in; i++) {
+			free(delayline[i]);
+		}
+	}
+	free(delayline);
 
 	free(plugin_ports_pre);
 	free(plugin_ports_post);
