@@ -476,16 +476,17 @@ puglProcessEvents(PuglView* view)
 				}
 			}
 		} break;
-		case ClientMessage:
-			if (!strcmp(XGetAtomName(view->impl->display,
-			                         event.xclient.message_type),
-			            "WM_PROTOCOLS")) {
+		case ClientMessage: {
+			char* type = XGetAtomName(view->impl->display,
+			                          event.xclient.message_type);
+			if (!strcmp(type, "WM_PROTOCOLS")) {
 				if (view->closeFunc) {
 					view->closeFunc(view);
 					view->redisplay = false;
 				}
 			}
-			break;
+			XFree(type);
+		} break;
 #ifdef XKEYFOCUSGRAB
 		case EnterNotify:
 			XSetInputFocus(view->impl->display, view->impl->win, RevertToPointerRoot, CurrentTime);

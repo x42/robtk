@@ -208,7 +208,7 @@ puglReshape(PuglView* view, int width, int height)
 	view->height = height;
 }
 
-void
+static void
 puglDisplay(PuglView* view)
 {
 	wglMakeCurrent(view->impl->hdc, view->impl->hglrc);
@@ -292,7 +292,7 @@ processMouseEvent(PuglView* view, int button, bool press, LPARAM lParam)
 	} else {
 		ReleaseCapture();
 	}
-	
+
 	if (view->mouseFunc) {
 		view->mouseFunc(view, button, press,
 		                GET_X_LPARAM(lParam),
@@ -365,6 +365,7 @@ handleMessage(PuglView* view, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_MOUSEWHEEL:
 		if (view->scrollFunc) {
+			view->event_timestamp_ms = GetMessageTime();
 			POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
 			ScreenToClient(view->impl->hwnd, &pt);
 			view->scrollFunc(
@@ -374,6 +375,7 @@ handleMessage(PuglView* view, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_MOUSEHWHEEL:
 		if (view->scrollFunc) {
+			view->event_timestamp_ms = GetMessageTime();
 			POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
 			ScreenToClient(view->impl->hwnd, &pt);
 			view->scrollFunc(
@@ -382,12 +384,12 @@ handleMessage(PuglView* view, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_KEYDOWN:
-		view->event_timestamp_ms = (GetMessageTime());
 		if (view->ignoreKeyRepeat && (lParam & (1 << 30))) {
 			break;
 		} // else nobreak
 	case WM_KEYUP:
-		if (key = keySymToSpecial(wParam)) {
+		view->event_timestamp_ms = GetMessageTime();
+		if ((key = keySymToSpecial(wParam))) {
 			if (view->specialFunc) {
 				view->specialFunc(view, message == WM_KEYDOWN, key);
 			}
