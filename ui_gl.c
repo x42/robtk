@@ -284,9 +284,36 @@ static const char * robtk_info(void *h) {
 	return "v" VERSION;
 #endif
 }
+
+static void close_self(void *h) {
+	GlMetersLV2UI * self = (GlMetersLV2UI*) h;
+	if (self->ui_closed) {
+		self->ui_closed(self);
+	}
+}
+
 /*****************************************************************************/
 
 #include PLUGIN_SOURCE
+
+/*****************************************************************************/
+
+#ifdef ROBTKAPP
+static const void*
+extension_data(const char* uri)
+{
+	return NULL;
+}
+
+static void
+port_event(LV2UI_Handle handle,
+           uint32_t     port_index,
+           uint32_t     buffer_size,
+           uint32_t     format,
+           const void*  buffer)
+{
+}
+#endif
 
 /*****************************************************************************/
 
