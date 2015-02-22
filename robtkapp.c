@@ -102,7 +102,7 @@ struct lv2_external_ui *extui = NULL;
 
 
 static const RtkLv2Description _plugin = {
-	&lv2ui_descriptor, 0, APPTITLE
+	& RTK_DESCRIPTOR, 0, APPTITLE
 };
 
 /******************************************************************************
