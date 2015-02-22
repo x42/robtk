@@ -476,3 +476,36 @@ puglGetNativeWindow(PuglView* view)
 {
 	return (PuglNativeWindow)view->impl->hwnd;
 }
+
+int
+puglOpenFileDialog(PuglView* view, const char *title)
+{
+	char fn[1024] = "";
+	OPENFILENAME ofn;
+	ZeroMemory(&ofn, sizeof(OPENFILENAME));
+	ofn.lStructSize = sizeof(OPENFILENAME);
+	ofn.lpstrFile = fn;
+	ofn.nMaxFile = 1024;
+	ofn.lpstrTitle = title;
+	ofn.lpstrFilter = "All\0*.*\0";
+	ofn.nFilterIndex = 0;
+	ofn.lpstrInitialDir = 0;
+	ofn.Flags = OFN_ENABLESIZING | OFN_FILEMUSTEXIST | OFN_NONETWORKBUTTON | OFN_HIDEREADONLY | OFN_READONLY;
+
+	// TODO look into async ofn.lpfnHook, OFN_ENABLEHOOK
+	// UINT_PTR CALLBACK openFileHook(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+	// yet it seems GetOpenFIleName itself won't return anyway.
+
+	ofn.hwndOwner = view->impl->hwnd; // modal
+
+	if (GetOpenFileName (&ofn)) {
+		if (view->fileSelectedFunc) {
+			view->fileSelectedFunc(view, fn);
+		}
+	} else {
+		if (view->fileSelectedFunc) {
+			view->fileSelectedFunc(view, NULL);
+		}
+	}
+	return 0;
+}

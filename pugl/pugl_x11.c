@@ -1,7 +1,7 @@
 /*
   Copyright 2012 David Robillard <http://drobilla.net>
   Copyright 2011-2012 Ben Loftis, Harrison Consoles
-  Copyright 2013 Robin Gareus <robin@gareus.org>
+  Copyright 2013,2015 Robin Gareus <robin@gareus.org>
 
   Permission to use, copy, modify, and/or distribute this software for any
   purpose with or without fee is hereby granted, provided that the above
@@ -31,6 +31,12 @@
 #include <X11/keysym.h>
 
 #include "pugl_internal.h"
+
+#ifdef WITH_SOFD
+#define HAVE_X11
+#include "../sofd/libsofd.h"
+#include "../sofd/libsofd.c"
+#endif
 
 /* work around buggy re-parent & focus issues on some systems
  * where no keyboard events are passed through even if the
@@ -238,6 +244,9 @@ puglDestroy(PuglView* view)
 	if (!view) {
 		return;
 	}
+#ifdef WITH_SOFD
+	x_fib_close(view->impl->display);
+#endif
 
 	glXDestroyContext(view->impl->display, view->impl->ctx);
 	XDestroyWindow(view->impl->display, view->impl->win);
@@ -372,12 +381,42 @@ setModifiers(PuglView* view, unsigned xstate, unsigned xtime)
 	view->mods |= (xstate & Mod4Mask)    ? PUGL_MOD_SUPER  : 0;
 }
 
+Window x_fib_window();
+
 PuglStatus
 puglProcessEvents(PuglView* view)
 {
 	XEvent event;
 	while (XPending(view->impl->display) > 0) {
 		XNextEvent(view->impl->display, &event);
+
+#ifdef WITH_SOFD
+		if (x_fib_handle_events(view->impl->display, &event)) {
+			const int status = x_fib_status();
+
+			if (status > 0) {
+				char* const filename = x_fib_filename();
+				x_fib_close(view->impl->display);
+				x_fib_add_recent (filename, time(NULL));
+				//x_fib_save_recent ("~/.robtk.recent");
+				if (view->fileSelectedFunc) {
+					view->fileSelectedFunc(view, filename);
+				}
+				free(filename);
+				x_fib_free_recent ();
+			} else if (status < 0) {
+				x_fib_close(view->impl->display);
+				if (view->fileSelectedFunc) {
+					view->fileSelectedFunc(view, NULL);
+				}
+			}
+		}
+#endif
+
+		if (event.xany.window != view->impl->win) {
+			continue;
+		}
+
 		switch (event.type) {
 		case MapNotify:
 			puglReshape(view, view->width, view->height);
@@ -524,4 +563,22 @@ PuglNativeWindow
 puglGetNativeWindow(PuglView* view)
 {
 	return view->impl->win;
+}
+
+int
+puglOpenFileDialog(PuglView* view, const char *title)
+{
+#ifdef WITH_SOFD
+	//x_fib_cfg_filter_callback (fib_filter_movie_filename);
+	if (x_fib_configure (1, title)) {
+		return -1;
+	}
+	//x_fib_load_recent ("~/.robtk.recent");
+	if (x_fib_show (view->impl->display, view->impl->win, 300, 300)) {
+		return -1;
+	}
+	return 0;
+#else
+	return -1;
+#endif
 }
