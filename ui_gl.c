@@ -285,11 +285,16 @@ static const char * robtk_info(void *h) {
 #endif
 }
 
-static void close_self(void *h) {
+static void robtk_close_self(void *h) {
 	GlMetersLV2UI * self = (GlMetersLV2UI*) h;
 	if (self->ui_closed) {
 		self->ui_closed(self);
 	}
+}
+
+static int robtk_open_file_dialog(void *h, const char *title) {
+	GlMetersLV2UI * self = (GlMetersLV2UI*) h;
+	return puglOpenFileDialog(self->view, title);
 }
 
 /*****************************************************************************/
@@ -869,6 +874,15 @@ static void doReshape(GlMetersLV2UI *self) {
 }
 #endif
 
+static void onFileSelected(PuglView* view, const char *filename) {
+#ifdef RTK_FILE_DIRECT_CALLBACK
+	GlMetersLV2UI* self = (GlMetersLV2UI*)puglGetHandle(view);
+	RTK_FILE_DIRECT_CALLBACK(self->ui, filename);
+#else
+	// TODO create port event (using urid:map)
+#endif
+}
+
 static void onReshape(PuglView* view, int width, int height) {
 	GlMetersLV2UI* self = (GlMetersLV2UI*)puglGetHandle(view);
 	if (!self->gl_initialized) {
@@ -1051,6 +1065,7 @@ static void pugl_init(GlMetersLV2UI* self) {
 	puglSetDisplayFunc(self->view, onDisplay);
 	puglSetReshapeFunc(self->view, onReshape);
 	puglSetResizeFunc(self->view, onResize);
+	puglSetFileSelectedFunc(self->view, onFileSelected);
 
 	if (self->extui) {
 		puglSetCloseFunc(self->view, onClose);

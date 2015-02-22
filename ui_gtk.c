@@ -36,6 +36,14 @@
 #define GTK_BACKEND
 #include "robtk.h"
 
+static void robtk_close_self(void *h) {
+	// TODO
+}
+
+static int robtk_open_file_dialog(void *h, const char *title) {
+	return -1; // TODO
+}
+
 /*****************************************************************************/
 
 #include PLUGIN_SOURCE
