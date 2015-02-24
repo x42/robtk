@@ -243,6 +243,8 @@ typedef struct {
 	uint64_t         queue_reshape;
 	int              queue_w;
 	int              queue_h;
+#else
+	bool             relayout;
 #endif
 
 	cairo_t*         cr;
@@ -677,6 +679,23 @@ static void resize_toplevel(RobWidget *rw, int w, int h) {
 	puglPostResize(self->view);
 }
 
+static void relayout_toplevel(RobWidget *rw) {
+	GlMetersLV2UI * const self =
+		(GlMetersLV2UI*) robwidget_get_toplevel_handle(rw);
+	if (!self || !self->view) { return; }
+#ifdef TIMED_RESHAPE
+	if (!self->resize_in_progress) {
+		self->queue_w = self->width;
+		self->queue_h = self->height;
+		self->resize_in_progress = TRUE;
+		self->queue_reshape = 1;
+	}
+#else
+	self->relayout = TRUE;
+#endif
+	puglPostRedisplay(self->view);
+}
+
 /*****************************************************************************/
 /* helper functions */
 static uint64_t microtime(float offset) {
@@ -926,6 +945,13 @@ static void onDisplay(PuglView* view) {
 #endif
 	if (self->resize_in_progress) { return; }
 	if (!self->cr) return; // XXX exit failure
+
+#ifndef TIMED_RESHAPE
+	if (self->relayout) {
+		self->relayout = FALSE;
+		onRealReshape(view, self->width, self->height);
+	}
+#endif
 
 #ifdef WITH_SIGNATURE
 	if (!self->gpg_verified) {
@@ -1364,6 +1390,8 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 	self->queue_reshape = 0;
 	self->queue_w = 0;
 	self->queue_h = 0;
+#else
+	self->relayout = FALSE;
 #endif
 
 #if (defined USE_GUI_THREAD && defined HAVE_IDLE_IFACE)

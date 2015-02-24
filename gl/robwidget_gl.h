@@ -160,6 +160,7 @@ static void robwidget_show(RobWidget *rw, bool resize_window) {
 	if (rw->hidden) {
 		rw->hidden = FALSE;
 		if (resize_window) resize_self(rw);
+		else relayout_toplevel(rw);
 	}
 }
 
@@ -168,6 +169,7 @@ static void robwidget_hide(RobWidget *rw, bool resize_window) {
 	if (!rw->hidden) {
 		rw->hidden = TRUE;
 		if (resize_window) resize_self(rw);
+		else relayout_toplevel(rw);
 	}
 }
 
