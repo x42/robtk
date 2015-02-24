@@ -29,6 +29,7 @@ typedef struct {
 	float min_width;
 	float min_height;
 	char *txt;
+	char *fontdesc;
 	float fg[4];
 	float bg[4];
 	pthread_mutex_t _mutex;
@@ -63,7 +64,13 @@ static bool robtk_lbl_expose_event(RobWidget* handle, cairo_t* cr, cairo_rectang
 static void priv_lbl_prepare_text(RobTkLbl *d, const char *txt) {
 	// _mutex must be held to call this function
 	int ww, wh;
-	PangoFontDescription *fd = get_font_from_theme();
+	PangoFontDescription *fd;
+
+	if (d->fontdesc) {
+		fd = pango_font_description_from_string(d->fontdesc);
+	} else {
+		fd = get_font_from_theme();
+	}
 
 	get_text_geometry(txt, fd, &ww, &wh);
 
@@ -127,6 +134,7 @@ static RobTkLbl * robtk_lbl_new(const char * txt) {
 	d->min_width = d->w_width = 0;
 	d->min_height = d->w_height = 0;
 	d->txt = NULL;
+	d->fontdesc = NULL;
 	d->sensitive = TRUE;
 	pthread_mutex_init (&d->_mutex, 0);
 	d->rw = robwidget_new(d);
@@ -145,6 +153,7 @@ static void robtk_lbl_destroy(RobTkLbl *d) {
 	pthread_mutex_destroy(&d->_mutex);
 	cairo_surface_destroy(d->sf_txt);
 	free(d->txt);
+	free(d->fontdesc);
 	free(d);
 }
 
@@ -177,6 +186,15 @@ static void robtk_lbl_set_color(RobTkLbl *d, float r, float g, float b, float a)
 	d->fg[1] = g;
 	d->fg[2] = b;
 	d->fg[3] = a;
+	assert(d->txt);
+	pthread_mutex_lock (&d->_mutex);
+	priv_lbl_prepare_text(d, d->txt);
+	pthread_mutex_unlock (&d->_mutex);
+}
+
+static void robtk_lbl_set_fontdesc(RobTkLbl *d, const char *fontdesc) {
+	free(d->fontdesc);
+	d->fontdesc = strdup(fontdesc);
 	assert(d->txt);
 	pthread_mutex_lock (&d->_mutex);
 	priv_lbl_prepare_text(d, d->txt);
