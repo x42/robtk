@@ -841,7 +841,7 @@ static void rtable_size_allocate(RobWidget* rw, int w, int h) {
 		if (c->size_allocate) {
 			int xpandx = 0;
 			int xpandy = 0;
-			for (int tci = tc->right; tci < tc->left; ++tci) {
+			for (int tci = tc->left; tci < tc->right; ++tci) {
 				if (rt->cols[tci].req_w != 0 && rt->cols[tci].is_expandable_x) xpandx++;
 			}
 			for (int tri = tc->top; tri < tc->bottom; ++tri) {
