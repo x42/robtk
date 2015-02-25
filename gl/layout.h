@@ -161,7 +161,13 @@ static void rcontainer_clear_bg(RobWidget* rw, cairo_t* cr, cairo_rectangle_t *e
   cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
   cairo_set_source_rgb (cr, c[0], c[1], c[2]);
   cairo_rectangle (cr, 0, 0, ev->width, ev->height);
+#if 0
+  cairo_fill_preserve(cr);
+  cairo_set_source_rgb (cr, 1.0, 0.1, .1);
+  cairo_stroke(cr);
+#else
   cairo_fill(cr);
+#endif
 }
 
 /*****************************************************************************/
@@ -684,7 +690,7 @@ rtable_size_request(RobWidget* rw, int *w, int *h) {
 		RobWidget * c = (RobWidget *) tc->rw;
 		if (c->hidden) continue;
 		c->size_request(c, &cw, &ch);
-		bool can_expand = roblayout_can_expand(c);
+		bool can_expand = TRUE; // roblayout_can_expand(c); // don't ask child, use table-attach setting
 #ifdef DEBUG_TABLE
 		printf("widget %d wants (%d x %d) x-span:%d y-span: %d\n", i, cw, ch, (tc->right - tc->left), (tc->bottom - tc->top));
 #endif
@@ -857,6 +863,18 @@ static void rtable_size_allocate(RobWidget* rw, int w, int h) {
 #endif
 			cw = c->area.width;
 			ch = c->area.height;
+		} else {
+			// shift the position of the item..
+			int xpandx = 0;
+			int xpandy = 0;
+			for (int tci = tc->left; tci < tc->right; ++tci) {
+				if (rt->cols[tci].req_w != 0 && rt->cols[tci].is_expandable_x) xpandx++;
+			}
+			for (int tri = tc->top; tri < tc->bottom; ++tri) {
+				if (rt->rows[tri].req_h != 0 && rt->rows[tri].is_expandable_y) xpandy++;
+			}
+			cw += floorf(xtra_width * xpandx);
+			ch += floorf(xtra_height * xpandy);
 		}
 
 		int curw = 0, curh = 0;
