@@ -399,6 +399,9 @@ puglCreate(PuglNativeWindow parent,
 		NSView* pview = (NSView*) parent;
 		[pview addSubview:impl->glview];
 		[impl->glview setHidden:NO];
+		if (!resizable) {
+			[impl->glview setAutoresizingMask:NSViewNotSizable];
+		}
 	} else {
 		NSString* titleString = [[NSString alloc]
 			initWithBytes:title
@@ -421,6 +424,9 @@ puglCreate(PuglNativeWindow parent,
 		[NSApp activateIgnoringOtherApps:YES];
 		[window makeFirstResponder:impl->glview];
 		[window makeKeyAndOrderFront:window];
+		if (!resizable) {
+			[window setStyleMask:[window styleMask] & ~NSResizableWindowMask];
+		}
 	}
 	return view;
 }
