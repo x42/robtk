@@ -1326,7 +1326,7 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 #endif
 		if ((tmp = strchr(data, '\n'))) *tmp = 0;
 		self->gpg_data[sizeof(self->gpg_data) - 1] = 0;
-		if (++tmp && *tmp) {
+		if (tmp++ && *tmp) {
 			if ((tmp = strstr(tmp, MTR_URI))) {
 				char *t1, *t2;
 				self->gpg_verified = TRUE;
