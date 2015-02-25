@@ -1216,7 +1216,9 @@ int main (int argc, char **argv) {
 		}
 	}
 
-	worker_iface = (LV2_Worker_Interface*) plugin_dsp->extension_data (LV2_WORKER__interface);
+	if (plugin_dsp->extension_data) {
+		worker_iface = (LV2_Worker_Interface*) plugin_dsp->extension_data (LV2_WORKER__interface);
+	}
 	if (worker_iface) {
 		worker_init();
 	}
