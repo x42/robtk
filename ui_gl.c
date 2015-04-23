@@ -353,7 +353,7 @@ static void lc_expose (GlMetersLV2UI * self) {
 	expose_area.width = self->width;
 	expose_area.height = self->height;
 
-	PangoFontDescription *xfont = pango_font_description_from_string("Sans 14");
+	PangoFontDescription *xfont = pango_font_description_from_string("Sans 16px");
 	cairo_rectangle (self->cr, 0, 0, self->width, self->height);
 	cairo_set_operator (self->cr, CAIRO_OPERATOR_OVER);
 	cairo_set_source_rgba(self->cr, 0, 0, 0, .15 + self->gpg_shade);
