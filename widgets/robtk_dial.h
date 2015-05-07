@@ -578,7 +578,9 @@ static void robtk_dial_annotation_callback(RobTkDial *d, void (*cb) (RobTkDial* 
 }
 
 static void robtk_dial_set_default(RobTkDial *d, float v) {
-	v = d->min + rintf((v-d->min) / d->acc ) * d->acc;
+	if (d->constrain_to_accuracy) {
+		v = d->min + rintf((v-d->min) / d->acc ) * d->acc;
+	}
 	assert(v >= d->min);
 	assert(v <= d->max);
 	d->dfl = v;
