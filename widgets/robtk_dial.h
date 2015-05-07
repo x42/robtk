@@ -39,6 +39,8 @@ typedef struct _RobTkDial {
 	float dfl;
 	float alt;
 	float base_mult;
+	bool  detent_at_dflt;
+	float dead_zone_delta;
 
 	int click_state;
 	int click_states;
@@ -257,11 +259,47 @@ static RobWidget* robtk_dial_mousemove(RobWidget* handle, RobTkBtnEvent *ev) {
 #else
 	const float mult = d->base_mult;
 #endif
+	float diff = ((ev->x - d->drag_x) - (ev->y - d->drag_y));
+	if (diff == 0) {
+		return handle;
+	}
 
-	float diff = ((ev->x - d->drag_x) - (ev->y - d->drag_y)) * mult;
-	diff = rintf(diff * (d->max - d->min) / d->acc ) * d->acc;
+	if (d->detent_at_dflt) {
+		const float px_deadzone = 33.f; // px
+		if ((d->cur - d->dfl) * (d->cur - d->dfl + diff * mult) < 0) {
+			/* detent */
+			const int tozero = (d->cur - d->dfl) * mult;
+			int remain = diff - tozero;
+			if (abs (remain) > px_deadzone) {
+				/* slow down passing the default value */
+				remain += (remain > 0) ? px_deadzone * -.5 : px_deadzone * .5;
+				diff = tozero + remain;
+				d->dead_zone_delta = 0;
+			} else {
+				robtk_dial_update_value(d, d->dfl);
+				d->dead_zone_delta = remain / px_deadzone;
+				d->drag_x = ev->x;
+				d->drag_y = ev->y;
+				goto out;
+			}
+		}
+
+		if (fabsf (rintf((d->cur - d->dfl) / mult) + d->dead_zone_delta) < 1) {
+			robtk_dial_update_value(d, d->dfl);
+			d->dead_zone_delta += diff / px_deadzone;
+			d->drag_x = ev->x;
+			d->drag_y = ev->y;
+			goto out;
+		}
+	}
+
+	diff = rintf(diff * mult * (d->max - d->min) / d->acc ) * d->acc;
+	if (diff != 0) {
+		d->dead_zone_delta = 0;
+	}
 	robtk_dial_update_value(d, d->drag_c + diff);
 
+out:
 #ifndef ABSOLUTE_DRAGGING
 	if (d->drag_c != d->cur) {
 		d->drag_x = ev->x;
@@ -455,6 +493,8 @@ static RobTkDial * robtk_dial_new_with_size(float min, float max, float step,
 	d->cur = min;
 	d->dfl = min;
 	d->alt = min;
+	d->detent_at_dflt = FALSE;
+	d->dead_zone_delta = 0;
 	d->sensitive = TRUE;
 	d->prelight = FALSE;
 	d->dragging = FALSE;
@@ -575,6 +615,10 @@ static void robtk_dial_set_state_color(RobTkDial *d, int s, float r, float g, fl
 	if (d->click_state == s) {
 		queue_draw(d->rw);
 	}
+}
+
+static void robtk_dial_set_detent(RobTkDial *d, bool v) {
+	d->detent_at_dflt = v;
 }
 
 static void robtk_dial_set_surface(RobTkDial *d, cairo_surface_t *s) {
