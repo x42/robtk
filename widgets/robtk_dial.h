@@ -37,6 +37,7 @@ typedef struct _RobTkDial {
 	float acc;
 	float cur;
 	float dfl;
+	float alt;
 	float base_mult;
 
 	int click_state;
@@ -206,7 +207,14 @@ static RobWidget* robtk_dial_mousedown(RobWidget* handle, RobTkBtnEvent *ev) {
 	if (ev->state & ROBTK_MOD_SHIFT) {
 		robtk_dial_update_value(d, d->dfl);
 		robtk_dial_update_state(d, d->click_dflt);
-	} else {
+	} else if (ev->button == 3) {
+		if (d->cur == d->dfl) {
+			robtk_dial_update_value(d, d->alt);
+		} else {
+			d->alt = d->cur;
+			robtk_dial_update_value(d, d->dfl);
+		}
+	} else if (ev->button == 1) {
 		d->dragging = TRUE;
 		d->clicking = TRUE;
 		d->drag_x = ev->x;
@@ -446,6 +454,7 @@ static RobTkDial * robtk_dial_new_with_size(float min, float max, float step,
 	d->acc = step;
 	d->cur = min;
 	d->dfl = min;
+	d->alt = min;
 	d->sensitive = TRUE;
 	d->prelight = FALSE;
 	d->dragging = FALSE;
@@ -517,6 +526,7 @@ static void robtk_dial_set_default(RobTkDial *d, float v) {
 	assert(v >= d->min);
 	assert(v <= d->max);
 	d->dfl = v;
+	d->alt = v;
 }
 
 static void robtk_dial_set_value(RobTkDial *d, float v) {
