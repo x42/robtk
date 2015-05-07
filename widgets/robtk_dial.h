@@ -39,8 +39,10 @@ typedef struct _RobTkDial {
 	float dfl;
 	float alt;
 	float base_mult;
-	bool  detent_at_dflt;
+	float scroll_mult;
 	float dead_zone_delta;
+	bool  detent_at_dflt;
+	bool  constrain_to_accuracy;
 
 	int click_state;
 	int click_states;
@@ -195,7 +197,9 @@ static void robtk_dial_update_state(RobTkDial * d, int state) {
 static void robtk_dial_update_value(RobTkDial * d, float val) {
 	if (val < d->min) val = d->min;
 	if (val > d->max) val = d->max;
-	val = d->min + rintf((val-d->min) / d->acc ) * d->acc;
+	if (d->constrain_to_accuracy) {
+		val = d->min + rintf((val-d->min) / d->acc ) * d->acc;
+	}
 	if (val != d->cur) {
 		d->cur = val;
 		if (d->cb) d->cb(d->rw, d->handle);
@@ -293,7 +297,12 @@ static RobWidget* robtk_dial_mousemove(RobWidget* handle, RobTkBtnEvent *ev) {
 		}
 	}
 
-	diff = rintf(diff * mult * (d->max - d->min) / d->acc ) * d->acc;
+	if (d->constrain_to_accuracy) {
+		diff = rintf(diff * mult * (d->max - d->min) / d->acc ) * d->acc;
+	} else {
+		diff *=  mult;
+	}
+
 	if (diff != 0) {
 		d->dead_zone_delta = 0;
 	}
@@ -351,6 +360,8 @@ static RobWidget* robtk_dial_scroll(RobWidget* handle, RobTkBtnEvent *ev) {
 	d->scroll_accel_timeout.tv_sec = now.tv_sec;
 	d->scroll_accel_timeout.tv_nsec = now.tv_nsec;
 
+	const float delta = (ev->state & ROBTK_MOD_CTRL) ? d->acc : d->scroll_mult * d->acc;
+
 	float val = d->cur;
 	switch (ev->direction) {
 		case ROBTK_SCROLL_RIGHT:
@@ -361,7 +372,7 @@ static RobWidget* robtk_dial_scroll(RobWidget* handle, RobTkBtnEvent *ev) {
 			} else if (d->scroll_accel_thresh <= ACCEL_THRESH) {
 				d->scroll_accel_thresh++;
 			}
-			val += d->acc * d->scroll_accel;
+			val += delta * d->scroll_accel;
 			break;
 		case ROBTK_SCROLL_LEFT:
 		case ROBTK_SCROLL_DOWN:
@@ -371,7 +382,7 @@ static RobWidget* robtk_dial_scroll(RobWidget* handle, RobTkBtnEvent *ev) {
 			} else if (d->scroll_accel_thresh >= -ACCEL_THRESH) {
 				d->scroll_accel_thresh--;
 			}
-			val -= d->acc * d->scroll_accel;
+			val -= delta * d->scroll_accel;
 			break;
 		default:
 			break;
@@ -494,6 +505,7 @@ static RobTkDial * robtk_dial_new_with_size(float min, float max, float step,
 	d->dfl = min;
 	d->alt = min;
 	d->detent_at_dflt = FALSE;
+	d->constrain_to_accuracy = TRUE;
 	d->dead_zone_delta = 0;
 	d->sensitive = TRUE;
 	d->prelight = FALSE;
@@ -507,6 +519,7 @@ static RobTkDial * robtk_dial_new_with_size(float min, float max, float step,
 	d->scroll_accel = 1.0;
 	d->base_mult = (((d->max - d->min) / d->acc) < 12) ? (d->acc * 12.0 / (d->max - d->min)) : 1.0;
 	d->base_mult *= 0.004; // 250px
+	d->scroll_mult = 1.0;
 	d->scroll_accel_thresh = 0;
 	rtk_clock_gettime(&d->scroll_accel_timeout);
 	d->bg  = NULL;
@@ -617,8 +630,16 @@ static void robtk_dial_set_state_color(RobTkDial *d, int s, float r, float g, fl
 	}
 }
 
+static void robtk_dial_set_scroll_mult(RobTkDial *d, float v) {
+	d->scroll_mult = v;
+}
+
 static void robtk_dial_set_detent(RobTkDial *d, bool v) {
 	d->detent_at_dflt = v;
+}
+
+static void robtk_dial_set_constained(RobTkDial *d, bool v) {
+	d->constrain_to_accuracy = v;
 }
 
 static void robtk_dial_set_surface(RobTkDial *d, cairo_surface_t *s) {
