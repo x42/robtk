@@ -41,7 +41,8 @@ typedef struct _RobTkDial {
 	float base_mult;
 	float scroll_mult;
 	float dead_zone_delta;
-	bool  detent_at_dflt;
+	int   n_detents;
+	float *detent;
 	bool  constrain_to_accuracy;
 
 	int click_state;
@@ -268,11 +269,11 @@ static RobWidget* robtk_dial_mousemove(RobWidget* handle, RobTkBtnEvent *ev) {
 		return handle;
 	}
 
-	if (d->detent_at_dflt) {
-		const float px_deadzone = 33.f; // px
-		if ((d->cur - d->dfl) * (d->cur - d->dfl + diff * mult) < 0) {
+	for (int i = 0; i < d->n_detents; ++i) {
+		const float px_deadzone = 34.f - d->n_detents; // px
+		if ((d->cur - d->detent[i]) * (d->cur - d->detent[i] + diff * mult) < 0) {
 			/* detent */
-			const int tozero = (d->cur - d->dfl) * mult;
+			const int tozero = (d->cur - d->detent[i]) * mult;
 			int remain = diff - tozero;
 			if (abs (remain) > px_deadzone) {
 				/* slow down passing the default value */
@@ -280,7 +281,7 @@ static RobWidget* robtk_dial_mousemove(RobWidget* handle, RobTkBtnEvent *ev) {
 				diff = tozero + remain;
 				d->dead_zone_delta = 0;
 			} else {
-				robtk_dial_update_value(d, d->dfl);
+				robtk_dial_update_value(d, d->detent[i]);
 				d->dead_zone_delta = remain / px_deadzone;
 				d->drag_x = ev->x;
 				d->drag_y = ev->y;
@@ -288,8 +289,8 @@ static RobWidget* robtk_dial_mousemove(RobWidget* handle, RobTkBtnEvent *ev) {
 			}
 		}
 
-		if (fabsf (rintf((d->cur - d->dfl) / mult) + d->dead_zone_delta) < 1) {
-			robtk_dial_update_value(d, d->dfl);
+		if (fabsf (rintf((d->cur - d->detent[i]) / mult) + d->dead_zone_delta) < 1) {
+			robtk_dial_update_value(d, d->detent[i]);
 			d->dead_zone_delta += diff / px_deadzone;
 			d->drag_x = ev->x;
 			d->drag_y = ev->y;
@@ -504,7 +505,8 @@ static RobTkDial * robtk_dial_new_with_size(float min, float max, float step,
 	d->cur = min;
 	d->dfl = min;
 	d->alt = min;
-	d->detent_at_dflt = FALSE;
+	d->n_detents = 0;
+	d->detent = NULL;
 	d->constrain_to_accuracy = TRUE;
 	d->dead_zone_delta = 0;
 	d->sensitive = TRUE;
@@ -553,6 +555,7 @@ static void robtk_dial_destroy(RobTkDial *d) {
 	robwidget_destroy(d->rw);
 	cairo_pattern_destroy(d->dpat);
 	free(d->scol);
+	free(d->detent);
 	free(d);
 }
 
@@ -634,8 +637,19 @@ static void robtk_dial_set_scroll_mult(RobTkDial *d, float v) {
 	d->scroll_mult = v;
 }
 
-static void robtk_dial_set_detent(RobTkDial *d, bool v) {
-	d->detent_at_dflt = v;
+static void robtk_dial_set_detents(RobTkDial *d, const int n, const float *p) {
+	free(d->detent);
+	assert (n < 15); // XXX
+	d->n_detents = n;
+	d->detent = (float*) malloc(n * sizeof(float));
+	memcpy(d->detent, p, n * sizeof(float));
+}
+
+static void robtk_dial_set_detent_default(RobTkDial *d, bool v) {
+	free(d->detent);
+	d->n_detents = 1;
+	d->detent = (float*) malloc(sizeof(float));
+	d->detent[0] = d->dfl;
 }
 
 static void robtk_dial_set_constained(RobTkDial *d, bool v) {
