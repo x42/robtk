@@ -35,7 +35,7 @@ endif
 UITOOLKIT=$(WD)checkbutton.h $(WD)dial.h $(WD)label.h $(WD)pushbutton.h\
           $(WD)radiobutton.h $(WD)scale.h $(WD)separator.h $(WD)spinner.h \
           $(WD)xyplot.h $(WD)selector.h $(WD)multibutton.h \
-          $(WD)image.h $(WD)drawingarea.h
+          $(WD)image.h $(WD)drawingarea.h $(WD)checkimgbutton.h
 
 ROBGL= $(RW)robtk.mk $(UITOOLKIT) $(RW)ui_gl.c $(PUGL_SRC) \
   $(RW)gl/common_cgl.h $(RW)gl/layout.h $(RW)gl/robwidget_gl.h $(RW)robtk.h \
