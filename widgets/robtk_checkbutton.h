@@ -375,6 +375,13 @@ static void robtk_cbtn_set_sensitive(RobTkCBtn *d, bool s) {
 	}
 }
 
+static void robtk_cbtn_set_text(RobTkCBtn *d, const char *txt) {
+	PangoFontDescription *fd = get_font_from_theme();
+	create_cbtn_text_surface(d, txt, fd);
+	pango_font_description_free(fd);
+	queue_draw(d->rw);
+}
+
 static void robtk_cbtn_set_color_on(RobTkCBtn *d, float r, float g, float b) {
 	d->c_on[0] = r;
 	d->c_on[1] = g;
