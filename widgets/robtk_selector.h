@@ -62,8 +62,8 @@ static bool robtk_select_expose_event(RobWidget* handle, cairo_t* cr, cairo_rect
 	if (!d->btn_bg) {
 		float c_bg[4]; get_color_from_theme(1, c_bg);
 		d->btn_bg = cairo_pattern_create_linear (0.0, 0.0, 0.0, d->w_height);
-		cairo_pattern_add_color_stop_rgb (d->btn_bg, ISBRIGHT(c_bg) ? 1.0 : 0.0, SHADE_RGB(c_bg, 1.95));
-		cairo_pattern_add_color_stop_rgb (d->btn_bg, ISBRIGHT(c_bg) ? 0.0 : 1.0, SHADE_RGB(c_bg, 0.75));
+		cairo_pattern_add_color_stop_rgb (d->btn_bg, ISBRIGHT(c_bg) ? 0.5 : 0.0, SHADE_RGB(c_bg, 1.95));
+		cairo_pattern_add_color_stop_rgb (d->btn_bg, ISBRIGHT(c_bg) ? 0.0 : 0.5, SHADE_RGB(c_bg, 0.75));
 	}
 
 	cairo_rectangle (cr, ev->x, ev->y, ev->width, ev->height);

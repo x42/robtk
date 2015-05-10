@@ -44,9 +44,9 @@ static void get_color_from_theme (int which, float *col) {
 			col[3] = 1.0;
 			break;
 		case 1: // bg
-			col[0] = 84/255.0;
-			col[1] = 85/255.0;
-			col[2] = 93/255.0;
+			col[0] = 61/255.0;
+			col[1] = 61/255.0;
+			col[2] = 61/255.0;
 			col[3] = 1.0;
 			break;
 		case 2: // fg alt

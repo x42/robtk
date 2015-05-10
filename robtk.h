@@ -314,7 +314,7 @@ static float rtk_hue2rgb(const float p, const float q, float t) {
 
 #endif
 
-#define C_RAD 6
+#define C_RAD 5
 
 #include "widgets/robtk_checkbutton.h"
 #include "widgets/robtk_checkimgbutton.h"
