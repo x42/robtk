@@ -55,6 +55,30 @@ ROBGTK = $(RW)robtk.mk $(UITOOLKIT) $(RW)ui_gtk.c \
 	  -shared $(LV2LDFLAGS) $(LDFLAGS) $(GTKUILIBS)
 	$(STRIP) ${LIBSTRIPFLAGS} $@
 
+%UI_gl.o:: $(ROBGL)
+	@mkdir -p $(@D)
+	$(CXX) -c $(CPPFLAGS) $(CFLAGS) $(GLUICFLAGS) \
+	  -DUINQHACK="$(shell date +%s$$$$)" \
+	  -DPLUGIN_SOURCE="\"gui/$(*F).c\"" \
+	  -DRTK_DESCRIPTOR="$(value gl_$(subst -,_,$(*F))_LV2DESC)" \
+	  -o $@ $(RW)ui_gl.c
+
+%pugl.o:: $(ROBGL)
+	@mkdir -p $(@D)
+	$(CXX) -c $(CPPFLAGS) $(CFLAGS) $(GLUICFLAGS) \
+	  -DUINQHACK="$(shell date +%s$$$$)" \
+	  -o $@ $(PUGL_SRC)
+
+%_glui.so %_glui.dylib %_glui.dll::
+	@mkdir -p $(@D)
+	$(CXX) $(CPPFLAGS) $(CFLAGS) $(GLUICFLAGS) \
+	  -o $@ gui/$(*F).c \
+	  $(GLGUIOBJ) \
+	  $(value $(*F)_UISRC) \
+	  -shared $(LV2LDFLAGS) $(LDFLAGS) $(GLUILIBS)
+	$(STRIP) ${LIBSTRIPFLAGS} $@
+
+
 %UI_gl.so %UI_gl.dylib %UI_gl.dll:: $(ROBGL)
 	@mkdir -p $(@D)
 	$(CXX) $(CPPFLAGS) $(CFLAGS) $(GLUICFLAGS) \
