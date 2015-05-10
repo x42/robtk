@@ -51,6 +51,7 @@ typedef struct {
 	float w_width, w_height, l_width, l_height;
 	float c_on[4];
 	float coff[4];
+	pthread_mutex_t _mutex;
 } RobTkCBtn;
 
 /******************************************************************************
@@ -92,6 +93,7 @@ static void create_cbtn_pattern(RobTkCBtn * d) {
 static void create_cbtn_text_surface(RobTkCBtn * d, const char * txt, PangoFontDescription *font) {
 	float c_col[4];
 	get_color_from_theme(0, c_col);
+	pthread_mutex_lock (&d->_mutex);
 
 	create_text_surface(&d->sf_txt_normal,
 			d->w_width, d->w_height,
@@ -110,6 +112,7 @@ static void create_cbtn_text_surface(RobTkCBtn * d, const char * txt, PangoFontD
 			 + (d->show_led < 0 ? GBT_LED_RADIUS + 6 : 0),
 			d->w_height / 2.0 + 1,
 			txt, font, c_col);
+	pthread_mutex_unlock (&d->_mutex);
 }
 
 
@@ -119,6 +122,12 @@ static void create_cbtn_text_surface(RobTkCBtn * d, const char * txt, PangoFontD
 
 static bool robtk_cbtn_expose_event(RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev) {
 	RobTkCBtn * d = (RobTkCBtn *)GET_HANDLE(handle);
+
+	if (pthread_mutex_trylock (&d->_mutex)) {
+		queue_draw(d->rw);
+		return TRUE;
+	}
+
 	cairo_rectangle (cr, ev->x, ev->y, ev->width, ev->height);
 	cairo_clip (cr);
 	float led_r, led_g, led_b; // TODO consolidate with c[]
@@ -228,6 +237,7 @@ static bool robtk_cbtn_expose_event(RobWidget* handle, cairo_t* cr, cairo_rectan
 			cairo_stroke(cr);
 		}
 	}
+	pthread_mutex_unlock (&d->_mutex);
 	return TRUE;
 }
 
@@ -304,6 +314,7 @@ static RobTkCBtn * robtk_cbtn_new(const char * txt, enum GedLedMode led, bool fl
 	d->radiomode = FALSE;
 	d->prelight = FALSE;
 	d->enabled = FALSE;
+	pthread_mutex_init (&d->_mutex, 0);
 
 	d->c_on[0] = .8; d->c_on[1] = .3; d->c_on[2] = .1; d->c_on[3] = 1.0;
 	d->coff[0] = .3; d->coff[1] = .1; d->coff[2] = .1; d->coff[3] = 1.0;
@@ -348,6 +359,7 @@ static void robtk_cbtn_destroy(RobTkCBtn *d) {
 	cairo_pattern_destroy(d->btn_led);
 	cairo_surface_destroy(d->sf_txt_normal);
 	cairo_surface_destroy(d->sf_txt_enabled);
+	pthread_mutex_destroy(&d->_mutex);
 	free(d);
 }
 
