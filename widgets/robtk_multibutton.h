@@ -60,7 +60,7 @@ static void create_mbtn_pattern(RobTkMBtn * d) {
 	float c_bg[4]; get_color_from_theme(1, c_bg);
 	d->btn_inactive = cairo_pattern_create_linear (0.0, 0.0, 0.0, d->w_height);
 	cairo_pattern_add_color_stop_rgb (d->btn_inactive, ISBRIGHT(c_bg) ? 0.5 : 0.0, SHADE_RGB(c_bg, 1.95));
-	cairo_pattern_add_color_stop_rgb (d->btn_inactive, ISBRIGHT(c_bg) ? 0.0 : ..0, SHADE_RGB(c_bg, 0.75));
+	cairo_pattern_add_color_stop_rgb (d->btn_inactive, ISBRIGHT(c_bg) ? 0.0 : 0.5, SHADE_RGB(c_bg, 0.75));
 
 	d->btn_enabled = cairo_pattern_create_linear (0.0, 0.0, 0.0, d->w_height);
 	cairo_pattern_add_color_stop_rgb (d->btn_enabled, ISBRIGHT(c_bg) ? 0.5 : 0.0, SHADE_RGB(c_bg, .95));
