@@ -1118,9 +1118,15 @@ static void pugl_init(GlMetersLV2UI* self) {
 		self->tl->size_default(self->tl, &self->width, &self->height);
 		self->resize = NULL;
 	}
+#ifndef USE_GUI_THREAD
+	ui_enable (self->ui);
+#endif
 }
 
 static void pugl_cleanup(GlMetersLV2UI* self) {
+#ifndef USE_GUI_THREAD
+	ui_disable (self->ui);
+#endif
 	glDeleteTextures (1, &self->texture_id); // XXX does his need glxContext ?!
 	free (self->surf_data);
 	cairo_destroy (self->cr);
