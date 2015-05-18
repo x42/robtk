@@ -128,7 +128,11 @@ puglCreate(PuglNativeWindow parent,
 	view->user_resizable = resizable;
 
 	impl->display = XOpenDisplay(0);
-	if (!impl->display) { return 0; }
+	if (!impl->display) {
+		free(view);
+		free(impl);
+		return 0;
+	}
 	impl->screen  = DefaultScreen(impl->display);
 	impl->doubleBuffered = True;
 
