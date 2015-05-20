@@ -26,6 +26,7 @@ typedef struct {
 	bool sensitive;
 	bool prelight;
 	bool enabled;
+	int  temporary_mode;
 
 	bool (*cb) (RobWidget* w, void* handle);
 	void* handle;
@@ -129,10 +130,26 @@ static bool robtk_ibtn_expose_event(RobWidget* handle, cairo_t* cr, cairo_rectan
  * UI callbacks
  */
 
+static RobWidget* robtk_ibtn_mousedown(RobWidget *handle, RobTkBtnEvent *event) {
+	RobTkIBtn * d = (RobTkIBtn *)GET_HANDLE(handle);
+	if (!d->sensitive) { return NULL; }
+	if (!d->prelight) { return NULL; }
+	if (   ((d->temporary_mode & 1) && event->button == 3)
+	    || ((d->temporary_mode & 2) && event->state & ROBTK_MOD_SHIFT)
+	    || ((d->temporary_mode & 4) && event->state & ROBTK_MOD_CTRL)
+		 )
+	{
+		robtk_ibtn_update_enabled(d, ! d->enabled);
+	}
+	return NULL;
+}
+
+
 static RobWidget* robtk_ibtn_mouseup(RobWidget *handle, RobTkBtnEvent *event) {
 	RobTkIBtn * d = (RobTkIBtn *)GET_HANDLE(handle);
 	if (!d->sensitive) { return NULL; }
 	if (!d->prelight) { return NULL; }
+	if (event->button !=1 && !((d->temporary_mode & 1) && event->button == 3)) { return NULL; }
 	robtk_ibtn_update_enabled(d, ! d->enabled);
 	return NULL;
 }
@@ -189,6 +206,7 @@ static RobTkIBtn * robtk_ibtn_new(cairo_surface_t *n, cairo_surface_t *e) {
 	d->sf_img_enabled = e;
 	d->btn_enabled = NULL;
 	d->btn_inactive = NULL;
+	d->temporary_mode = 0;
 	d->sensitive = TRUE;
 	d->prelight = FALSE;
 	d->enabled = FALSE;
@@ -205,6 +223,7 @@ static RobTkIBtn * robtk_ibtn_new(cairo_surface_t *n, cairo_surface_t *e) {
 	robwidget_set_size_request(d->rw, priv_ibtn_size_request);
 	robwidget_set_size_allocate(d->rw, priv_ibtn_size_allocate);
 	robwidget_set_expose_event(d->rw, robtk_ibtn_expose_event);
+	robwidget_set_mousedown(d->rw, robtk_ibtn_mousedown);
 	robwidget_set_mouseup(d->rw, robtk_ibtn_mouseup);
 	robwidget_set_enter_notify(d->rw, robtk_ibtn_enter_notify);
 	robwidget_set_leave_notify(d->rw, robtk_ibtn_leave_notify);
@@ -243,6 +262,10 @@ static void robtk_ibtn_set_sensitive(RobTkIBtn *d, bool s) {
 		d->sensitive = s;
 		queue_draw(d->rw);
 	}
+}
+
+static void robtk_ibtn_set_temporary_mode(RobTkIBtn *d, int i) {
+	d->temporary_mode = i;
 }
 
 static bool robtk_ibtn_get_active(RobTkIBtn *d) {

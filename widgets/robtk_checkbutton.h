@@ -38,6 +38,7 @@ typedef struct {
 	enum GedLedMode show_led;
 	bool flat_button;
 	bool radiomode;
+	int  temporary_mode;
 
 	bool (*cb) (RobWidget* w, void* handle);
 	void* handle;
@@ -246,11 +247,27 @@ static bool robtk_cbtn_expose_event(RobWidget* handle, cairo_t* cr, cairo_rectan
  * UI callbacks
  */
 
+static RobWidget* robtk_cbtn_mousedown(RobWidget *handle, RobTkBtnEvent *event) {
+	RobTkCBtn * d = (RobTkCBtn *)GET_HANDLE(handle);
+	if (!d->sensitive) { return NULL; }
+	if (!d->prelight) { return NULL; }
+	if (d->radiomode && d->enabled) { return NULL; }
+	if (   ((d->temporary_mode & 1) && event->button == 3)
+	    || ((d->temporary_mode & 2) && event->state & ROBTK_MOD_SHIFT)
+	    || ((d->temporary_mode & 4) && event->state & ROBTK_MOD_CTRL)
+		 )
+	{
+		robtk_cbtn_update_enabled(d, ! d->enabled);
+	}
+	return NULL;
+}
+
 static RobWidget* robtk_cbtn_mouseup(RobWidget *handle, RobTkBtnEvent *event) {
 	RobTkCBtn * d = (RobTkCBtn *)GET_HANDLE(handle);
 	if (!d->sensitive) { return NULL; }
 	if (!d->prelight) { return NULL; }
 	if (d->radiomode && d->enabled) { return NULL; }
+	if (event->button !=1 && !((d->temporary_mode & 1) && event->button == 3)) { return NULL; }
 	robtk_cbtn_update_enabled(d, ! d->enabled);
 	return NULL;
 }
@@ -312,6 +329,7 @@ static RobTkCBtn * robtk_cbtn_new(const char * txt, enum GedLedMode led, bool fl
 	d->btn_inactive = NULL;
 	d->sensitive = TRUE;
 	d->radiomode = FALSE;
+	d->temporary_mode = 0;
 	d->prelight = FALSE;
 	d->enabled = FALSE;
 	pthread_mutex_init (&d->_mutex, 0);
@@ -343,6 +361,7 @@ static RobTkCBtn * robtk_cbtn_new(const char * txt, enum GedLedMode led, bool fl
 	robwidget_set_size_request(d->rw, priv_cbtn_size_request);
 	robwidget_set_size_allocate(d->rw, priv_cbtn_size_allocate);
 	robwidget_set_expose_event(d->rw, robtk_cbtn_expose_event);
+	robwidget_set_mousedown(d->rw, robtk_cbtn_mousedown);
 	robwidget_set_mouseup(d->rw, robtk_cbtn_mouseup);
 	robwidget_set_enter_notify(d->rw, robtk_cbtn_enter_notify);
 	robwidget_set_leave_notify(d->rw, robtk_cbtn_leave_notify);
@@ -404,6 +423,11 @@ static void robtk_cbtn_set_color_off(RobTkCBtn *d, float r, float g, float b) {
 	d->coff[0] = r;
 	d->coff[1] = g;
 	d->coff[2] = b;
+}
+
+static void robtk_cbtn_set_temporary_mode(RobTkCBtn *d, int i) {
+	if (d->radiomode) return;
+	d->temporary_mode = i;
 }
 
 static bool robtk_cbtn_get_active(RobTkCBtn *d) {
