@@ -307,6 +307,9 @@ static void robtk_pbtn_set_text(RobTkPBtn *d, const char *txt) {
 }
 
 static void robtk_pbtn_set_bg(RobTkPBtn *d, float r, float g, float b, float a) {
+	if (d->bg[0] == r && d->bg[1] == g && d->bg[2] == b && d->bg[3] == a) {
+		return;
+	}
 	d->bg[0] = r;
 	d->bg[1] = g;
 	d->bg[2] = b;
