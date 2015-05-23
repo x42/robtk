@@ -32,6 +32,7 @@ typedef struct {
 	char *fontdesc;
 	float fg[4];
 	float bg[4];
+	bool  rounded;
 	pthread_mutex_t _mutex;
 } RobTkLbl;
 
@@ -46,8 +47,16 @@ static bool robtk_lbl_expose_event(RobWidget* handle, cairo_t* cr, cairo_rectang
 	cairo_rectangle (cr, ev->x, ev->y, ev->width, ev->height);
 	cairo_clip (cr);
 	cairo_set_source_rgb (cr, d->bg[0], d->bg[1], d->bg[2]);
-	cairo_rectangle (cr, 0, 0, d->w_width, d->w_height);
-	cairo_fill(cr);
+	if (!d->rounded) {
+		cairo_rectangle (cr, 0, 0, d->w_width, d->w_height);
+		cairo_fill(cr);
+	} else {
+		rounded_rectangle(cr, 0.5, 0.5, d->w_width - 1, d->w_height - 1, C_RAD);
+		cairo_fill_preserve(cr);
+		cairo_set_line_width (cr, .75);
+		cairo_set_source_rgba (cr, .0, .0, .0, 1.0);
+		cairo_stroke(cr);
+	}
 
 	if (d->sensitive) {
 		cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
@@ -136,6 +145,7 @@ static RobTkLbl * robtk_lbl_new(const char * txt) {
 	d->txt = NULL;
 	d->fontdesc = NULL;
 	d->sensitive = TRUE;
+	d->rounded = FALSE;
 	pthread_mutex_init (&d->_mutex, 0);
 	d->rw = robwidget_new(d);
 	ROBWIDGET_SETNAME(d->rw, "label");
