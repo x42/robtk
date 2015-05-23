@@ -39,21 +39,26 @@ typedef struct {
 	cairo_surface_t* sf_txt;
 
 	float w_width, w_height, l_width, l_height;
-
+	float fg[4];
+	float bg[4];
+	pthread_mutex_t _mutex;
 } RobTkPBtn;
 
 static bool robtk_pbtn_expose_event(RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev) {
 	RobTkPBtn * d = (RobTkPBtn *)GET_HANDLE(handle);
+
+	if (pthread_mutex_trylock (&d->_mutex)) {
+		queue_draw(d->rw);
+		return TRUE;
+	}
+
 	cairo_rectangle (cr, ev->x, ev->y, ev->width, ev->height);
 	cairo_clip (cr);
-
 
 	cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
 
 	if (!d->sensitive) {
-		float c[4];
-		get_color_from_theme(1, c);
-		cairo_set_source_rgb (cr, c[0], c[1], c[2]);
+		cairo_set_source_rgb (cr, d->bg[0], d->bg[1], d->bg[2]);
 	} else if (d->enabled) {
 		cairo_set_source(cr, d->btn_active);
 	} else {
@@ -85,6 +90,8 @@ static bool robtk_pbtn_expose_event(RobWidget* handle, cairo_t* cr, cairo_rectan
 		cairo_set_source_rgba (cr, .0, .0, .0, 1.0);
 		cairo_stroke(cr);
 	}
+
+	pthread_mutex_unlock (&d->_mutex);
 	return TRUE;
 }
 
@@ -133,38 +140,42 @@ static void robtk_pbtn_leave_notify(RobWidget *handle) {
 }
 
 static void create_pbtn_pattern(RobTkPBtn * d) {
-	float c_bg[4]; get_color_from_theme(1, c_bg);
-
+	pthread_mutex_lock (&d->_mutex);
 	if (d->btn_active) cairo_pattern_destroy(d->btn_active);
 	if (d->btn_inactive) cairo_pattern_destroy(d->btn_inactive);
 
 	d->btn_inactive = cairo_pattern_create_linear (0.0, 0.0, 0.0, d->w_height);
-	cairo_pattern_add_color_stop_rgb (d->btn_inactive, ISBRIGHT(c_bg) ? 0.5 : 0.0, SHADE_RGB(c_bg, 1.95));
-	cairo_pattern_add_color_stop_rgb (d->btn_inactive, ISBRIGHT(c_bg) ? 0.0 : 0.5, SHADE_RGB(c_bg, 0.75));
+	cairo_pattern_add_color_stop_rgb (d->btn_inactive, ISBRIGHT(d->bg) ? 0.5 : 0.0, SHADE_RGB(d->bg, 1.95));
+	cairo_pattern_add_color_stop_rgb (d->btn_inactive, ISBRIGHT(d->bg) ? 0.0 : 0.5, SHADE_RGB(d->bg, 0.75));
 
 	d->btn_active = cairo_pattern_create_linear (0.0, 0.0, 0.0, d->w_height);
-	cairo_pattern_add_color_stop_rgb (d->btn_active, ISBRIGHT(c_bg) ? 0.5 : 0.0, SHADE_RGB(c_bg, .95));
-	cairo_pattern_add_color_stop_rgb (d->btn_active, ISBRIGHT(c_bg) ? 0.0 : 0.5, SHADE_RGB(c_bg, 2.4));
+	cairo_pattern_add_color_stop_rgb (d->btn_active, ISBRIGHT(d->bg) ? 0.5 : 0.0, SHADE_RGB(d->bg, .95));
+	cairo_pattern_add_color_stop_rgb (d->btn_active, ISBRIGHT(d->bg) ? 0.0 : 0.5, SHADE_RGB(d->bg, 2.4));
+	pthread_mutex_unlock (&d->_mutex);
 }
 
 static void create_pbtn_text_surface(RobTkPBtn * d, const char * txt, PangoFontDescription *font) {
+	pthread_mutex_lock (&d->_mutex);
 	if (d->sf_txt) {
 		cairo_surface_destroy(d->sf_txt);
 	}
 	d->sf_txt = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, d->w_width, d->w_height);
 	cairo_t *cr = cairo_create (d->sf_txt);
-	cairo_set_source_rgba (cr, .0, .0, .0, 0);
-	cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
-	cairo_rectangle (cr, 0, 0, d->w_width, d->w_height);
-	cairo_fill (cr);
+	cairo_set_operator (cr, CAIRO_OPERATOR_CLEAR);
+	cairo_paint (cr);
 	cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
 
-	float c_col[4];
-	get_color_from_theme(0, c_col);
+	if (!font) {
+		font = get_font_from_theme();
+	}
+
 	write_text_full(cr, txt, font,
 			d->w_width / 2.0 + 1,
-			d->w_height / 2.0 + 1, 0, 2, c_col);
+			d->w_height / 2.0 + 1, 0, 2, d->fg);
 	cairo_destroy (cr);
+	pthread_mutex_unlock (&d->_mutex);
+
+	pango_font_description_free(font);
 }
 
 /******************************************************************************
@@ -193,7 +204,7 @@ priv_pbtn_size_allocate(RobWidget* handle, int w, int h) {
  * public functions
  */
 
-static RobTkPBtn * robtk_pbtn_new(const char * txt) {
+static RobTkPBtn * robtk_pbtn_new_with_colors(const char * txt, const float bg[4], const float fg[4]) {
 	assert(txt);
 	RobTkPBtn *d = (RobTkPBtn *) malloc(sizeof(RobTkPBtn));
 
@@ -207,10 +218,14 @@ static RobTkPBtn * robtk_pbtn_new(const char * txt) {
 	d->sensitive = TRUE;
 	d->prelight = FALSE;
 	d->enabled = FALSE;
+	pthread_mutex_init (&d->_mutex, 0);
 
 	d->btn_active = NULL;
 	d->btn_inactive = NULL;
 	d->sf_txt = NULL;
+
+	memcpy(d->bg, bg, 4 * sizeof(float));
+	memcpy(d->fg, fg, 4 * sizeof(float));
 
 	int ww, wh;
 	PangoFontDescription *fd = get_font_from_theme();
@@ -221,8 +236,7 @@ static RobTkPBtn * robtk_pbtn_new(const char * txt) {
 	d->l_width = d->w_width;
 	d->l_height = d->w_height;
 
-	create_pbtn_text_surface(d, txt, fd);
-	pango_font_description_free(fd);
+	create_pbtn_text_surface(d, txt, fd); // free's fd.
 
 	d->rw = robwidget_new(d);
 	ROBWIDGET_SETNAME(d->rw, "pbtn");
@@ -240,11 +254,20 @@ static RobTkPBtn * robtk_pbtn_new(const char * txt) {
 	return d;
 }
 
+static RobTkPBtn * robtk_pbtn_new(const char * txt) {
+	float fg[4];
+	float bg[4];
+	get_color_from_theme(0, fg);
+	get_color_from_theme(1, bg);
+	return robtk_pbtn_new_with_colors(txt, bg, fg);
+}
+
 static void robtk_pbtn_destroy(RobTkPBtn *d) {
 	robwidget_destroy(d->rw);
 	cairo_pattern_destroy(d->btn_active);
 	cairo_pattern_destroy(d->btn_inactive);
 	cairo_surface_destroy(d->sf_txt);
+	pthread_mutex_destroy(&d->_mutex);
 	free(d);
 }
 
@@ -276,6 +299,20 @@ static void robtk_pbtn_set_sensitive(RobTkPBtn *d, bool s) {
 		d->sensitive = s;
 		queue_draw(d->rw);
 	}
+}
+
+static void robtk_pbtn_set_text(RobTkPBtn *d, const char *txt) {
+	create_pbtn_text_surface (d, txt, NULL);
+	queue_draw(d->rw);
+}
+
+static void robtk_pbtn_set_bg(RobTkPBtn *d, float r, float g, float b, float a) {
+	d->bg[0] = r;
+	d->bg[1] = g;
+	d->bg[2] = b;
+	d->bg[3] = a;
+	create_pbtn_pattern(d);
+	queue_draw(d->rw);
 }
 
 static bool robtk_pbtn_get_pushed(RobTkPBtn *d) {
