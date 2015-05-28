@@ -26,6 +26,8 @@ typedef struct {
 	float m_width, m_height;
 	float w_width, w_height;
 	float line_width;
+	double dash;
+	double dashoffset;
 } RobTkSep;
 
 static bool robtk_sep_expose_event(RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev) {
@@ -41,7 +43,10 @@ static bool robtk_sep_expose_event(RobWidget* handle, cairo_t* cr, cairo_rectang
 	get_color_from_theme(0, c);
 	cairo_set_source_rgba (cr, c[0], c[1], c[2], .7);
 
-	if (d->line_width <=0 ) return TRUE;
+	if (d->line_width <= 0) return TRUE;
+	if (d->dash > 0) {
+		cairo_set_dash (cr, &d->dash, 1, d->dashoffset);
+	}
 
 	cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
 	cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
@@ -91,6 +96,8 @@ static RobTkSep * robtk_sep_new(bool horizontal) {
 	d->m_width = 4;
 	d->m_height = 4;
 	d->line_width = 1.0;
+	d->dash = 0;
+	d->dashoffset = 0;
 
 	d->rw = robwidget_new(d);
 	if (horizontal) {
@@ -112,6 +119,11 @@ static void robtk_sep_destroy(RobTkSep *d) {
 
 static void robtk_sep_set_alignment(RobTkSep *d, float x, float y) {
 	robwidget_set_alignment(d->rw, x, y);
+}
+
+static void robtk_sep_set_dash(RobTkSep *d, double dash, double offset) {
+	d->dash = dash;
+	d->dashoffset = offset;
 }
 
 static void robtk_sep_set_linewidth(RobTkSep *d, float lw) {
