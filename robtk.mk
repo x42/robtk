@@ -113,6 +113,7 @@ x42-%-collection x42-%-collection.exe:: $(ROBGL) $(RW)jackwrap.c $(OSXJACKWRAP) 
 	$(CXX) $(CPPFLAGS) $(JACKCFLAGS) -DDEFAULT_NOT_ONTOP \
 	  -DXTERNAL_UI -DHAVE_IDLE_IFACE \
 	  -DJACK_DESCRIPT="\"$(value x42_$(subst -,_,$(*F))_collection_LV2HTTL)\"" \
+	  -DAPPNAME="\"$(*F)\"" \
 	  -o $@ \
 	  $(RW)jackwrap.c $(PUGL_SRC) $(OSXJACKWRAP) $(JACKEXTRA) \
 	  $(value x42_$(subst -,_,$(*F))_collection_JACKSRC) \
@@ -126,6 +127,7 @@ x42-% x42-%.exe:: $(ROBGL) $(RW)jackwrap.c $(OSXJACKWRAP) $(RW)weakjack/weak_lib
 	  -DRTK_DESCRIPTOR="$(value x42_$(subst -,_,$(*F))_JACKDESC)" \
 	  -DPLUGIN_SOURCE="\"$(value x42_$(subst -,_,$(*F))_JACKGUI)\"" \
 	  -DJACK_DESCRIPT="\"$(value x42_$(subst -,_,$(*F))_LV2HTTL)\"" \
+	  -DAPPNAME="\"$(*F)\"" \
 	  -o $@ \
 	  $(RW)jackwrap.c $(RW)ui_gl.c $(PUGL_SRC) $(OSXJACKWRAP) $(JACKEXTRA) \
 	  $(value x42_$(subst -,_,$(*F))_JACKSRC) \
