@@ -662,7 +662,7 @@ static int jack_portsetup(void) {
 		if ((midi_out = jack_port_register (j_client,
 						inst->ports[portmap_atom_to_ui].name,
 						JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput, 0)) == 0) {
-			fprintf (stderr, "cannot register midi ouput port \"%s\"!\n", inst->ports[portmap_atom_to_ui].name);
+			fprintf (stderr, "cannot register midi output port \"%s\"!\n", inst->ports[portmap_atom_to_ui].name);
 			return (-1);
 		}
 	}
