@@ -33,7 +33,7 @@
 
 #include "lv2/lv2plug.in/ns/extensions/ui/ui.h"
 
-#ifdef __MACH__
+#ifdef __APPLE__
 #include <mach/clock.h>
 #include <mach/mach.h>
 #endif
@@ -61,7 +61,7 @@ static LARGE_INTEGER getFILETIMEoffset() {
 
 // monotonic time
 static void rtk_clock_gettime(struct timespec *ts) {
-#ifdef __MACH__
+#ifdef __APPLE__
 	clock_serv_t cclock;
 	mach_timespec_t mts;
 	host_get_clock_service(mach_host_self(), SYSTEM_CLOCK /*CALENDAR_CLOCK*/, &cclock);
@@ -110,7 +110,7 @@ static void rtk_clock_gettime(struct timespec *ts) {
 
 // realtime time -- only used for  pthread_cond_timedwait()
 static void rtk_clock_systime(struct timespec *ts) {
-#ifdef __MACH__
+#ifdef __APPLE__
 	rtk_clock_gettime(ts);
 #elif defined _WIN32
 	struct __timeb64 currSysTime;
