@@ -54,10 +54,7 @@ struct rob_table_field {
 	bool is_expandable_y;
 	int acq_w;
 	int acq_h;
-#if 0
-	int off_x;
-	int off_y;
-#endif
+	int expand;
 };
 
 struct rob_table {
@@ -146,9 +143,6 @@ static void rcontainer_child_pack(RobWidget *rw, RobWidget *chld, bool expand, b
 	chld->parent = rw;
 }
 static void rcontainer_clear_bg(RobWidget* rw, cairo_t* cr, cairo_rectangle_t *ev) {
-  cairo_rectangle (cr, ev->x, ev->y, ev->width, ev->height);
-  cairo_clip (cr);
-
   float c[4];
 #ifdef VISIBLE_EXPOSE
 	c[0] = rand() / (float)RAND_MAX;
@@ -160,7 +154,7 @@ static void rcontainer_clear_bg(RobWidget* rw, cairo_t* cr, cairo_rectangle_t *e
 #endif
   cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
   cairo_set_source_rgb (cr, c[0], c[1], c[2]);
-  cairo_rectangle (cr, 0, 0, ev->width, ev->height);
+  cairo_rectangle (cr, ev->x, ev->y, ev->width, ev->height);
 #if 0
   cairo_fill_preserve(cr);
   cairo_set_source_rgb (cr, 1.0, 0.1, .1);
@@ -226,7 +220,6 @@ static bool rcontainer_expose_event_no_clear(RobWidget* rw, cairo_t* cr, cairo_r
 		if (!rect_intersect(&c->area, ev)) continue;
 
 		if (rw->resized) {
-			// XXX alternatively set  c->resized = TRUE
 			memcpy(&event, ev, sizeof(cairo_rectangle_t));
 		} else {
 			event.x = MAX(0, ev->x - c->area.x);
@@ -234,6 +227,7 @@ static bool rcontainer_expose_event_no_clear(RobWidget* rw, cairo_t* cr, cairo_r
 			event.width  = MIN(c->area.x + c->area.width, ev->x + ev->width) - MAX(ev->x,  c->area.x);
 			event.height = MIN(c->area.y + c->area.height, ev->y + ev->height) - MAX(ev->y, c->area.y);
 		}
+
 #ifdef DEBUG_EXPOSURE_UI
 		printf("rce %.1f+%.1f , %.1fx%.1f  ||  cld %.1f+%.1f ,  %.1fx%.1f || ISC %.1f+%.1f , %.1fx%.1f\n",
 				ev->x, ev->y, ev->width, ev->height,
@@ -642,11 +636,11 @@ static void dump_tbl_req(struct rob_table *rt) {
 	printf("---REQ---\n");
 	printf("COLS: | ");
 	for (x=0; x < rt->ncols; ++x) {
-		printf(" *%4d* x  %4d  |", rt->cols[x].req_w, rt->cols[x].req_h);
+		printf(" *%4d* x  %4d (%d,%d)|", rt->cols[x].req_w, rt->cols[x].req_h, rt->cols[x].is_expandable_x, rt->cols[x].is_expandable_y);
 	}
 	printf("\n---------------\n");
 	for (y=0; y < rt->nrows; ++y) {
-		printf("ROW %d ||  %4d  x *%4d*\n", y, rt->rows[y].req_w, rt->rows[y].req_h);
+		printf("ROW %d ||  %4d  x *%4d* (%d,%d)\n", y, rt->rows[y].req_w, rt->rows[y].req_h, rt->rows[y].is_expandable_x, rt->rows[y].is_expandable_y);
 	}
 }
 
@@ -678,9 +672,13 @@ rtable_size_request(RobWidget* rw, int *w, int *h) {
 	// reset
 	for (unsigned int r=0; r < rt->nrows; ++r) {
 		memset(&rt->rows[r], 0, sizeof(struct rob_table_field));
+		rt->rows[r].is_expandable_x = TRUE;
+		rt->rows[r].is_expandable_y = TRUE;
 	}
 	for (unsigned int c=0; c < rt->ncols; ++c) {
 		memset(&rt->cols[c], 0, sizeof(struct rob_table_field));
+		rt->cols[c].is_expandable_x = TRUE;
+		rt->cols[c].is_expandable_y = TRUE;
 	}
 
 	// fill in childs
@@ -690,7 +688,6 @@ rtable_size_request(RobWidget* rw, int *w, int *h) {
 		RobWidget * c = (RobWidget *) tc->rw;
 		if (c->hidden) continue;
 		c->size_request(c, &cw, &ch);
-		bool can_expand = TRUE; // roblayout_can_expand(c); // don't ask child, use table-attach setting
 #ifdef DEBUG_TABLE
 		printf("widget %d wants (%d x %d) x-span:%d y-span: %d\n", i, cw, ch, (tc->right - tc->left), (tc->bottom - tc->top));
 #endif
@@ -701,18 +698,24 @@ rtable_size_request(RobWidget* rw, int *w, int *h) {
 		for (int span_y = tc->top; span_y < tc->bottom; ++span_y) {
 			curh += rt->rows[span_y].req_h;
 		}
+
+		float avg_w = MAX(0, cw - curw) / (float)(tc->right - tc->left);
+		float avg_h = MAX(0, ch - curh) / (float)(tc->bottom - tc->top);
+
 		for (int span_x = tc->left; span_x < tc->right; ++span_x) {
-			rt->cols[span_x].req_w += ceil(MAX(0, cw - curw) / (float)(tc->right - tc->left));
+			int tcw = rint (avg_w * (1 + span_x -  tc->left)) - rint (avg_w * (span_x -  tc->left));
+			rt->cols[span_x].req_w += tcw;
 			rt->cols[span_x].req_h = MAX(rt->cols[span_x].req_h, ch); // unused -- homog
-			if (can_expand && (tc->expand_x & RTK_EXPAND)) {
-				rt->cols[span_x].is_expandable_x = TRUE;
+			if (!(tc->expand_x & RTK_EXPAND)) {
+				rt->cols[span_x].is_expandable_x = FALSE;
 			}
 		}
 		for (int span_y = tc->top; span_y < tc->bottom; ++span_y) {
+			int tch = rint (avg_h * (1 + span_y -  tc->top)) - rint (avg_h * (span_y -  tc->top));
 			rt->rows[span_y].req_w = MAX(rt->rows[span_y].req_w, cw); // unused -- homog
-			rt->rows[span_y].req_h += ceil(MAX(0, ch - curh) / (float)(tc->bottom - tc->top));
-			if (can_expand && (tc->expand_y & RTK_EXPAND)) {
-				rt->rows[span_y].is_expandable_y = TRUE;
+			rt->rows[span_y].req_h += tch;
+			if (!(tc->expand_y & RTK_EXPAND)) {
+				rt->rows[span_y].is_expandable_y = FALSE;
 			}
 		}
 		// XXX
@@ -764,63 +767,81 @@ rtable_size_request(RobWidget* rw, int *w, int *h) {
 	robwidget_set_area(rw, 0, 0, ww, hh);
 }
 
-static void rtable_size_allocate(RobWidget* rw, int w, int h) {
+static void rtable_size_allocate(RobWidget* rw, const int w, const int h) {
 	struct rob_table *rt = (struct rob_table*)rw->self;
 #ifdef DEBUG_TABLE
 	printf("table size_allocate %d, %d\n", w, h);
 #endif
 	if (h < rw->area.height || w < rw->area.width) {
 		printf(" !!! table size request error. want %.1fx%.1f got %dx%d\n", rw->area.width, rw->area.height, w, h);
-		h = rw->area.height;
 	}
 
-	float xtra_height = 0;
-	float xtra_width = 0;
 
 	if (h > rw->area.height) {
-		int cnt = 0;
 		int exp = 0;
 #ifdef DEBUG_TABLE
 		printf("---TABLE CAN EXPAND in height to %d\n", h);
 #endif
 		for (unsigned int r=0; r < rt->nrows; ++r) {
 			if (rt->rows[r].req_h == 0) continue;
-			++cnt;
 			if (rt->rows[r].is_expandable_y) { ++exp; }
 		}
 		if (exp > 0) {
-			xtra_height = (h - rw->area.height) / (float)exp;
+			int cnt = 0;
+			float xtra_height = (h - rw->area.height) / (float)exp;
 #ifdef DEBUG_TABLE
-			printf("table expand %d widgets by %.1f height\n", exp, xtra_height);
+			printf("table expand %d rows by %.1f height\n", exp, xtra_height);
 #endif
+			for (unsigned int r=0; r < rt->nrows; ++r) {
+				if (rt->rows[r].req_h == 0) continue;
+				if (!rt->rows[r].is_expandable_y) continue;
+				rt->rows[r].expand = rint (xtra_height * (1 + cnt)) - rint (xtra_height * (cnt));
+				++cnt;
+			}
 		} else {
 #ifdef DEBUG_TABLE
-			printf("table no grow %.1f height\n", xtra_height);
+			printf("table no grow height\n");
 #endif
 		}
 	}
 
 	if (w > rw->area.width) {
-		int cnt = 0;
 		int exp = 0;
 #ifdef DEBUG_TABLE
 		printf("TABLE CAN EXPAND in width to %d\n", w);
 #endif
 		for (unsigned int c=0; c < rt->ncols; ++c) {
 			if (rt->cols[c].req_w == 0) continue;
-			++cnt;
 			if (rt->cols[c].is_expandable_x) { ++exp; }
 		}
 		if (exp > 0) {
-			xtra_width = (w - rw->area.width) / (float)exp;
+			int cnt = 0;
+			float xtra_width = (w - rw->area.width) / (float)exp;
 #ifdef DEBUG_TABLE
-			printf("table expand %d widgets by %.1f width\n", exp, xtra_width);
+			printf("table expand %d columns by %.1f width\n", exp, xtra_width);
 #endif
+
+			for (unsigned int c=0; c < rt->ncols; ++c) {
+				if (rt->cols[c].req_w == 0) continue;
+				if (!rt->cols[c].is_expandable_x) continue;
+				rt->cols[c].expand = rint (xtra_width * (1 + cnt)) - rint (xtra_width * (cnt));
+				++cnt;
+			}
+
 		} else {
 #ifdef DEBUG_TABLE
-			printf("table no grow %.1f width\n", xtra_width);
+			printf("table no grow width\n");
 #endif
 		}
+	}
+
+
+	for (unsigned int c=0; c < rt->ncols; ++c) {
+		rt->cols[c].acq_w = rt->cols[c].req_w + rt->cols[c].expand;
+	}
+
+	for (unsigned int r=0; r < rt->nrows; ++r) {
+		rt->rows[r].acq_h = rt->rows[r].req_h + rt->rows[r].expand;
 	}
 
 	for (unsigned int i=0; i < rt->nchilds; ++i) {
@@ -829,16 +850,7 @@ static void rtable_size_allocate(RobWidget* rw, int w, int h) {
 		struct rob_table_child *tc = &rt->chld[i];
 		RobWidget * c = (RobWidget *) tc->rw;
 		if (c->hidden) continue;
-#if 0
-		for (int span_x = tc->left; span_x < tc->right; ++span_x) {
-			cw += rt->cols[span_x].req_w;
-		}
-		for (int span_y = tc->top; span_y < tc->bottom; ++span_y) {
-			ch += rt->rows[span_y].req_h;
-		}
-#else
 		c->size_request(c, &cw, &ch);
-#endif
 
 #ifdef DEBUG_TABLE
 		printf("widget %d wants (%d x %d) x-span:%d y-span: %d  %d, %d\n", i, cw, ch, (tc->right - tc->left), (tc->bottom - tc->top), tc->left, tc->top);
@@ -848,35 +860,25 @@ static void rtable_size_allocate(RobWidget* rw, int w, int h) {
 			int xpandx = 0;
 			int xpandy = 0;
 			for (int tci = tc->left; tci < tc->right; ++tci) {
-				if (rt->cols[tci].req_w != 0 && rt->cols[tci].is_expandable_x) xpandx++;
+				xpandx += rt->cols[tci].expand;
 			}
 			for (int tri = tc->top; tri < tc->bottom; ++tri) {
-				if (rt->rows[tri].req_h != 0 && rt->rows[tri].is_expandable_y) xpandy++;
+				xpandy += rt->rows[tri].expand;
 			}
-			c->size_allocate(c,
-					cw + floorf(xtra_width * xpandx),
-					ch + floorf(xtra_height * xpandy));
-#if 0
-			/* or rather assume child swallowed it all */
-			//c->area.width = cw + xtra_width * (tc->right - tc->left);
-			//c->area.height = ch + xtra_height * (tc->bottom - tc->top);
-#endif
+			c->size_allocate(c, cw + xpandx, ch + xpandy);
 			cw = c->area.width;
 			ch = c->area.height;
 		} else {
 			// shift the position of the item..
-			int xpandx = 0;
-			int xpandy = 0;
 			for (int tci = tc->left; tci < tc->right; ++tci) {
-				if (rt->cols[tci].req_w != 0 && rt->cols[tci].is_expandable_x) xpandx++;
+				cw += rt->cols[tci].expand;
 			}
 			for (int tri = tc->top; tri < tc->bottom; ++tri) {
-				if (rt->rows[tri].req_h != 0 && rt->rows[tri].is_expandable_y) xpandy++;
+				ch += rt->rows[tri].expand;
 			}
-			cw += floorf(xtra_width * xpandx);
-			ch += floorf(xtra_height * xpandy);
 		}
 
+#if 1 // verify layout
 		int curw = 0, curh = 0;
 		for (int span_x = tc->left; span_x < tc->right; ++span_x) {
 			curw += rt->cols[span_x].acq_w;
@@ -884,12 +886,15 @@ static void rtable_size_allocate(RobWidget* rw, int w, int h) {
 		for (int span_y = tc->top; span_y < tc->bottom; ++span_y) {
 			curh += rt->rows[span_y].acq_h;
 		}
-		for (int span_y = tc->top; span_y < tc->bottom; ++span_y) {
-			rt->rows[span_y].acq_h += ceil(MAX(0, ch - curh) / (tc->bottom - tc->top));
+
+		if (cw > curw) {
+			printf("TABLE child %d WIDTH %d > %d\n", i, cw, curw);
 		}
-		for (int span_x = tc->left; span_x < tc->right; ++span_x) {
-			rt->cols[span_x].acq_w += ceil(MAX(0, cw - curw) / (float)(tc->right - tc->left));
+		if (ch > curh) {
+			printf("TABLE child %d HEIGHT %d > %d \n", i, ch, curh);
 		}
+#endif
+
 #ifdef DEBUG_TABLE
 		dump_tbl_acq(rt);
 		printf("TABLECHILD %d use %.1fx%.1f (field: %dx%d)\n", i, c->area.width, c->area.height, rt->cols[tc->left].acq_w, rt->rows[tc->top].acq_h);
@@ -937,7 +942,6 @@ static void rtable_size_allocate(RobWidget* rw, int w, int h) {
 #endif
 		}
 
-#if 1
 		if (c->position_set) {
 			c->position_set(c, cw, ch);
 		} else {
@@ -945,10 +949,6 @@ static void rtable_size_allocate(RobWidget* rw, int w, int h) {
 		}
 		c->area.x += cx;
 		c->area.y += cy;
-#else
-		c->area.x = cx;
-		c->area.y = cy;
-#endif
 
 		if (c->area.x + c->area.width  > max_w) max_w = c->area.x + c->area.width;
 		if (c->area.y + c->area.height > max_h) max_h = c->area.y + c->area.height;
@@ -960,12 +960,26 @@ static void rtable_size_allocate(RobWidget* rw, int w, int h) {
 		}
 	}
 #ifdef DEBUG_TABLE
-	printf("TABLE PACKED total %dx%d  (given: %dx%d)\n", max_w, max_h, w, h);
+	printf("TABLE PACKED %.1f+%.1f  %dx%d  (given: %dx%d)\n", (w - max_w) / 2.0, (h - max_h) / 2.0, max_w, max_h, w, h);
+#endif
 	if (max_w > w || max_h > h) {
 		printf("TABLE OVERFLOW total %dx%d  (given: %dx%d)\n", max_w, max_h, w, h);
-	}
+	} else if (max_w < w || max_h < h) {
+		// re-center content in case table did not fully expand
+		const int xoff = floor((w - max_w) / 2.0);
+		const int yoff = floor((h - max_h) / 2.0);
+#ifdef DEBUG_TABLE
+		printf("RE-CENTER CHILDS by %dx%d \n", xoff, yoff);
 #endif
-	robwidget_set_area(rw, (max_w - w) / 2.0, (max_h - h) / 2.0, max_w, max_h);
+		for (unsigned int i=0; i < rt->nchilds; ++i) {
+			struct rob_table_child *tc = &rt->chld[i];
+			RobWidget * c = (RobWidget *) tc->rw;
+			if (c->hidden) continue;
+			c->area.x += xoff;
+			c->area.y += yoff;
+		}
+	}
+	robwidget_set_area(rw, 0, 0, w, h);
 }
 
 static void rob_table_attach(RobWidget *rw, RobWidget *chld,
