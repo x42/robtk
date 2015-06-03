@@ -688,6 +688,7 @@ rtable_size_request(RobWidget* rw, int *w, int *h) {
 		RobWidget * c = (RobWidget *) tc->rw;
 		if (c->hidden) continue;
 		c->size_request(c, &cw, &ch);
+
 #ifdef DEBUG_TABLE
 		printf("widget %d wants (%d x %d) x-span:%d y-span: %d\n", i, cw, ch, (tc->right - tc->left), (tc->bottom - tc->top));
 #endif
@@ -699,8 +700,8 @@ rtable_size_request(RobWidget* rw, int *w, int *h) {
 			curh += rt->rows[span_y].req_h;
 		}
 
-		float avg_w = MAX(0, cw - curw) / (float)(tc->right - tc->left);
-		float avg_h = MAX(0, ch - curh) / (float)(tc->bottom - tc->top);
+		float avg_w = MAX(0, tc->xpadding * 2 + cw - curw) / (float)(tc->right - tc->left);
+		float avg_h = MAX(0, tc->ypadding * 2 + ch - curh) / (float)(tc->bottom - tc->top);
 
 		for (int span_x = tc->left; span_x < tc->right; ++span_x) {
 			int tcw = rint (avg_w * (1 + span_x -  tc->left)) - rint (avg_w * (span_x -  tc->left));
@@ -930,6 +931,23 @@ static void rtable_size_allocate(RobWidget* rw, const int w, const int h) {
 #ifdef DEBUG_TABLE
 		printf("TABLECHILD %d avail %dx%d at %d+%d (wsize: %.1fx%.1f)\n", i, cw, ch, cx, cy, c->area.width, c->area.height);
 #endif
+
+		cx += tc->xpadding;
+		cy += tc->ypadding;
+
+		if (tc->xpadding > 0) {
+			if (cw < c->area.width + tc->xpadding) {
+				printf("!!!! Table Padding:%d + cell %.0f < widget-width %d\n", tc->xpadding, c->area.width, cw);
+			}
+		}
+		if (tc->ypadding > 0) {
+			if (ch < c->area.height + tc->ypadding) {
+				printf("!!!! Table Padding:%d + cell %.0f < widget-height %d\n", tc->ypadding, c->area.height, ch);
+			}
+		}
+
+		cw -= tc->xpadding * 2;
+		ch -= tc->ypadding * 2;
 
 		if (c->size_allocate) {
 			int aw = c->area.width;
