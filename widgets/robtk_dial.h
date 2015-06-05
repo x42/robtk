@@ -529,6 +529,7 @@ static RobTkDial * robtk_dial_new_with_size(float min, float max, float step,
 	d->prelight = FALSE;
 	d->dragging = FALSE;
 	d->clicking = FALSE;
+	d->threesixty = FALSE;
 	d->displaymode = 0;
 	d->click_states = 0;
 	d->click_state = 0;
