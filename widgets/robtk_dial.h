@@ -76,6 +76,8 @@ typedef struct _RobTkDial {
 	float *scol;
 	float dcol[4][4];
 
+	bool threesixty;
+
 } RobTkDial;
 
 static bool robtk_dial_expose_event (RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev) {
@@ -124,7 +126,12 @@ static bool robtk_dial_expose_event (RobWidget* handle, cairo_t* cr, cairo_recta
 		CairoSetSouerceRGBA(d->dcol[1]);
 	}
 
-	float ang = (.75 * M_PI) + (1.5 * M_PI) * (d->cur - d->min) / (d->max - d->min);
+	float ang;
+	if (d->threesixty) {
+		ang = (.5 * M_PI) + (2.0 * M_PI) * (d->cur - d->min) / (d->max - d->min);
+	} else {
+		ang = (.75 * M_PI) + (1.5 * M_PI) * (d->cur - d->min) / (d->max - d->min);
+	}
 
 	if ((d->displaymode & 1) == 0) {
 		/* line from center */
@@ -196,8 +203,15 @@ static void robtk_dial_update_state(RobTkDial * d, int state) {
 }
 
 static void robtk_dial_update_value(RobTkDial * d, float val) {
-	if (val < d->min) val = d->min;
-	if (val > d->max) val = d->max;
+	if (d->threesixty) {
+		// TODO use fmod(), but retain accuracy constraint
+		while (val < d->min) val += (d->max - d->min);
+		while (val > d->max) val -= (d->max - d->min);
+		assert (val >= d->min && val <= d->max);
+	} else {
+		if (val < d->min) val = d->min;
+		if (val > d->max) val = d->max;
+	}
 	if (d->constrain_to_accuracy) {
 		val = d->min + rintf((val-d->min) / d->acc ) * d->acc;
 	}
@@ -269,11 +283,13 @@ static RobWidget* robtk_dial_mousemove(RobWidget* handle, RobTkBtnEvent *ev) {
 		return handle;
 	}
 
+#define DRANGE(X) (!d->threesixty ? X : (d->min + fmod ((X) - d->min, (d->max - d->min))))
+
 	for (int i = 0; i < d->n_detents; ++i) {
 		const float px_deadzone = 34.f - d->n_detents; // px
-		if ((d->cur - d->detent[i]) * (d->cur - d->detent[i] + diff * mult) < 0) {
+		if (DRANGE(d->cur - d->detent[i]) * DRANGE(d->cur - d->detent[i] + diff * mult) < 0) {
 			/* detent */
-			const int tozero = (d->cur - d->detent[i]) * mult;
+			const int tozero = DRANGE(d->cur - d->detent[i]) * mult;
 			int remain = diff - tozero;
 			if (abs (remain) > px_deadzone) {
 				/* slow down passing the default value */
@@ -289,7 +305,7 @@ static RobWidget* robtk_dial_mousemove(RobWidget* handle, RobTkBtnEvent *ev) {
 			}
 		}
 
-		if (fabsf (rintf((d->cur - d->detent[i]) / mult) + d->dead_zone_delta) < 1) {
+		if (fabsf (rintf(DRANGE(d->cur - d->detent[i]) / mult) + d->dead_zone_delta) < 1) {
 			robtk_dial_update_value(d, d->detent[i]);
 			d->dead_zone_delta += diff / px_deadzone;
 			d->drag_x = ev->x;
