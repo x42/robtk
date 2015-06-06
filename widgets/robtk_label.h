@@ -108,7 +108,7 @@ static void priv_lbl_prepare_text(RobTkLbl *d, const char *txt) {
 	robwidget_set_size(d->rw, d->w_width, d->w_height);
 	// TODO trigger re-layout  resize_self()
 
-	queue_draw(d->rw);
+	queue_tiny_area(d->rw, 0, 0, d->w_width, d->w_height);
 }
 
 /******************************************************************************
