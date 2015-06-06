@@ -40,7 +40,11 @@ static void get_text_geometry( const char *txt, PangoFontDescription *font, int 
 	cairo_t *cr = cairo_create (tmp);
 	PangoLayout * pl = pango_cairo_create_layout(cr);
 	pango_layout_set_font_description(pl, font);
-	pango_layout_set_text(pl, txt, -1);
+	if (strncmp(txt, "<markup>", 8)) {
+		pango_layout_set_text(pl, txt, -1);
+	} else {
+		pango_layout_set_markup(pl, txt, -1);
+	}
 	pango_layout_get_pixel_size(pl, tw, th);
 	g_object_unref(pl);
 	cairo_destroy (cr);
