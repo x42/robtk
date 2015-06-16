@@ -547,3 +547,17 @@ puglOpenFileDialog(PuglView* view, const char *title)
 
 	return 0;
 }
+
+bool
+rtk_osx_open_url (const char* url)
+{
+	NSString* strurl = [[NSString alloc] initWithUTF8String:url];
+	NSURL* nsurl = [[NSURL alloc] initWithString:strurl];
+
+	bool ret = [[NSWorkspace sharedWorkspace] openURL:nsurl];
+
+	[strurl release];
+	[nsurl release];
+
+	return ret;
+}
