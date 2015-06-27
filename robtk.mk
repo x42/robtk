@@ -31,6 +31,11 @@ else
   JACKLIBS+=`pkg-config $(PKG_UI_FLAGS) --libs jack`
 endif
 
+ifeq ($(shell pkg-config --exists liblo && echo yes), yes)
+  JACKCFLAGS+=`pkg-config $(PKG_UI_FLAGS) --cflags liblo` -DHAVE_LIBLO
+  JACKLIBS+=`pkg-config $(PKG_UI_FLAGS) --libs liblo`
+endif
+
 
 UITOOLKIT=$(WD)checkbutton.h $(WD)dial.h $(WD)label.h $(WD)pushbutton.h\
           $(WD)radiobutton.h $(WD)scale.h $(WD)separator.h $(WD)spinner.h \

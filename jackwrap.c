@@ -64,6 +64,7 @@ extern void rtk_osx_api_err(const char *msg);
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <getopt.h>
 #include <assert.h>
 
 #if (defined _WIN32 && defined RTK_STATIC_INIT)
@@ -141,6 +142,25 @@ static jack_ringbuffer_t *rb_ctrl_to_ui = NULL;
 static jack_ringbuffer_t *rb_ctrl_from_ui = NULL;
 static jack_ringbuffer_t *rb_atom_to_ui = NULL;
 static jack_ringbuffer_t *rb_atom_from_ui = NULL;
+
+#ifdef HAVE_LIBLO
+#include <lo/lo.h>
+lo_server_thread          osc_server = NULL;
+static jack_ringbuffer_t *rb_osc_to_ui = NULL;
+
+typedef struct _osc_midi_event {
+	size_t size;
+	uint8_t buffer[3];
+} osc_midi_event_t;
+
+#ifndef OSC_MIDI_QUEUE_SIZE
+#define OSC_MIDI_QUEUE_SIZE (256)
+#endif
+
+static osc_midi_event_t event_queue[OSC_MIDI_QUEUE_SIZE];
+static int queued_events_start = 0;
+static int queued_events_end = 0;
+#endif
 
 static pthread_mutex_t gui_thread_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t  data_ready = PTHREAD_COND_INITIALIZER;
@@ -242,6 +262,8 @@ static pthread_t             worker_thread;
 static pthread_mutex_t       worker_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t        worker_ready = PTHREAD_COND_INITIALIZER;
 static LV2_Worker_Interface* worker_iface = NULL;
+
+static pthread_mutex_t       port_write_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static struct DelayBuffer **delayline = NULL;
 static uint32_t worst_capture_latency = 0;
@@ -409,7 +431,27 @@ static int process (jack_nframes_t nframes, void *arg) {
 			}
 		}
 		if (inst->nports_midi_in > 0) {
-			/* inject midi events */
+#ifdef HAVE_LIBLO
+			/*inject OSC midi events, use time 0 */
+			while (queued_events_end != queued_events_start) {
+				uint32_t size = event_queue[queued_events_end].size;
+				uint32_t padded_size = ((sizeof(LV2_Atom_Event) + size) +  7) & (~7);
+
+				if (inst->min_atom_bufsiz > padded_size) {
+					LV2_Atom_Event *aev = (LV2_Atom_Event *)seq;
+					aev->time.frames = 0; // time
+					aev->body.size  = size;
+					aev->body.type  = uri_midi_MidiEvent;
+					memcpy(LV2_ATOM_BODY(&aev->body), event_queue[queued_events_end].buffer, size);
+					atom_in->atom.size += padded_size;
+					seq += padded_size;
+				}
+
+				queued_events_end = (queued_events_end + 1) % OSC_MIDI_QUEUE_SIZE;
+			}
+#endif
+
+			/* inject jack midi events */
 			void* buf = jack_port_get_buffer(midi_in, nframes);
 			for (uint32_t i = 0; i < jack_midi_get_event_count(buf); ++i) {
 				jack_midi_event_t ev;
@@ -525,8 +567,11 @@ static int process (jack_nframes_t nframes, void *arg) {
 	}
 
 	/* wake up UI */
-	if (jack_ringbuffer_read_space(rb_ctrl_to_ui) > sizeof(uint32_t) + sizeof(float)
+	if (jack_ringbuffer_read_space(rb_ctrl_to_ui) >= sizeof(uint32_t) + sizeof(float)
 			|| jack_ringbuffer_read_space(rb_atom_to_ui) > sizeof(LV2_Atom)
+#ifdef HAVE_LIBLO
+			|| jack_ringbuffer_read_space(rb_osc_to_ui) >= sizeof(uint32_t) + sizeof(float)
+#endif
 			) {
 		if (pthread_mutex_trylock (&gui_thread_lock) == 0) {
 			pthread_cond_signal (&data_ready);
@@ -754,13 +799,23 @@ static void write_function(
 		fprintf(stderr, "LV2Host: write_function() unsupported buffer\n");
 		return;
 	}
-	if (port_index < inst->nports_total && portmap_ctrl[port_index] < 0) {
+	if (port_index >= inst->nports_total) {
+		fprintf(stderr, "LV2Host: write_function() invalid port\n");
+		return;
+	}
+	if (portmap_ctrl[port_index] < 0) {
 		fprintf(stderr, "LV2Host: write_function() unmapped port\n");
 		return;
 	}
+	if (inst->ports[port_index].porttype != CONTROL_IN) {
+		fprintf(stderr, "LV2Host: write_function() not a control input\n");
+		return;
+	}
 	if (jack_ringbuffer_write_space(rb_ctrl_from_ui) >= sizeof(uint32_t) + sizeof(float)) {
+		pthread_mutex_lock (&port_write_lock);
 		jack_ringbuffer_write(rb_ctrl_from_ui, (char *) &portmap_ctrl[port_index], sizeof(uint32_t));
 		jack_ringbuffer_write(rb_ctrl_from_ui, (char *) buffer, sizeof(float));
+		pthread_mutex_unlock (&port_write_lock);
 	}
 }
 
@@ -831,6 +886,128 @@ lv2_worker_schedule(LV2_Worker_Schedule_Handle unused,
 }
 
 /******************************************************************************
+ * OSC
+ */
+#ifdef HAVE_LIBLO
+
+static void osc_queue_midi_event (osc_midi_event_t *ev) {
+	if (((queued_events_start + 1) % OSC_MIDI_QUEUE_SIZE) == queued_events_end) {
+		return;
+	}
+	memcpy (&event_queue[queued_events_start], ev, sizeof(osc_midi_event_t));
+	queued_events_start = (queued_events_start + 1) % OSC_MIDI_QUEUE_SIZE;
+}
+
+static void oscb_error (int num, const char *m, const char *path) {
+	fprintf(stderr, "liblo server error %d in path %s: %s\n", num, path, m);
+}
+
+#define MIDI_Q3(STATUS)                                 \
+	osc_midi_event_t ev;                            \
+	ev.size = 3;                                    \
+	ev.buffer[0] = STATUS | (argv[0]->i & 0x0f);    \
+	ev.buffer[1] = argv[1]->i & 0x7f;               \
+	ev.buffer[2] = argv[2]->i & 0x7f;               \
+	osc_queue_midi_event (&ev);
+
+static int oscb_cc (const char *path, const char *types, lo_arg **argv, int argc, lo_message msg, void *user_data) {
+	MIDI_Q3(0xb0);
+	return 0;
+}
+
+static int oscb_pc (const char *path, const char *types, lo_arg **argv, int argc, lo_message msg, void *user_data) {
+	MIDI_Q3(0xc0);
+	return 0;
+}
+
+static int oscb_noteon (const char *path, const char *types, lo_arg **argv, int argc, lo_message msg, void *user_data) {
+	MIDI_Q3(0x90);
+	return 0;
+}
+
+static int oscb_noteoff (const char *path, const char *types, lo_arg **argv, int argc, lo_message msg, void *user_data) {
+	MIDI_Q3(0x80);
+	return 0;
+}
+
+static int oscb_rawmidi (const char *path, const char *types, lo_arg **argv, int argc, lo_message msg, void *user_data) {
+	osc_midi_event_t ev;
+	ev.size = 3;
+	ev.buffer[0] = argv[0]->m[1];
+	ev.buffer[1] = argv[0]->m[2] & 0x7f;
+	ev.buffer[2] = argv[0]->m[3] & 0x7f;
+	osc_queue_midi_event (&ev);
+	return 0;
+}
+
+static int oscb_parameter (const char *path, const char *types, lo_arg **argv, int argc, lo_message msg, void *user_data) {
+	assert (argc == 2 && !strcmp (types, "if"));
+
+	const int port = argv[0]->i;
+	const float val = argv[1]->f;
+
+	if (inst->nports_ctrl < port || port < 0) {
+		fprintf (stderr, "OSC: Invalid Parameter 0 <= %d < %d\n", port, inst->nports_ctrl);
+		return 0;
+	}
+
+	const uint32_t port_index = portmap_rctl[port];
+
+	if (inst->ports[port_index].porttype != CONTROL_IN) {
+		fprintf (stderr, "OSC: mapped port (%d) is not a control input.\n", port_index);
+		return 0;
+	}
+
+	//fprintf (stdout, "OSC: %d,  %d -> %f\n", port, port_index, val);
+
+	write_function (NULL, port_index, sizeof (float), 0, (const void*) &val);
+
+	if (jack_ringbuffer_write_space (rb_osc_to_ui) >= sizeof(uint32_t) + sizeof(float)) {
+		jack_ringbuffer_write (rb_osc_to_ui, (char *) &port_index, sizeof(uint32_t));
+		jack_ringbuffer_write (rb_osc_to_ui, (char *) &val, sizeof(float));
+	}
+
+	return 0;
+}
+
+static int start_osc_server (int osc_port) {
+	char tmp[8];
+	uint32_t port = (osc_port > 100 && osc_port < 60000) ? osc_port : 9988;
+
+	snprintf(tmp, sizeof(tmp), "%d", port);
+	osc_server = lo_server_thread_new (tmp, oscb_error);
+
+	if (!osc_server) {
+		fprintf(stderr, "OSC failed to listen on port %s", tmp);
+		return -1;
+	} else {
+		char *urlstr = lo_server_thread_get_url (osc_server);
+		fprintf(stderr, "OSC server: %s\n", urlstr);
+		free (urlstr);
+	}
+
+	lo_server_thread_add_method (osc_server, "/x42/parameter", "if", oscb_parameter, NULL);
+	lo_server_thread_add_method (osc_server, "/x42/midi/raw", "m", oscb_rawmidi, NULL);
+	lo_server_thread_add_method (osc_server, "/x42/midi/cc", "iii", oscb_cc, NULL);
+	lo_server_thread_add_method (osc_server, "/x42/midi/pc", "iii", oscb_pc, NULL);
+	lo_server_thread_add_method (osc_server, "/x42/midi/noteon", "iii", oscb_noteon, NULL);
+	lo_server_thread_add_method (osc_server, "/x42/midi/noteoff", "iii", oscb_noteoff, NULL);
+	lo_server_thread_start(osc_server);
+
+	return 0;
+}
+
+static void stop_osc_server () {
+	if (!osc_server) return;
+	lo_server_thread_stop (osc_server);
+	lo_server_thread_free (osc_server);
+	fprintf(stderr, "OSC server shut down.\n");
+	osc_server = NULL;
+}
+#endif
+
+
+/******************************************************************************
  * MAIN
  */
 
@@ -851,6 +1028,10 @@ static void cleanup(int sig) {
 		jack_ringbuffer_free(worker_responses);
 	}
 
+#ifdef HAVE_LIBLO
+	stop_osc_server ();
+#endif
+
 	if (plugin_dsp && plugin_instance && plugin_dsp->deactivate) {
 		plugin_dsp->deactivate(plugin_instance);
 	}
@@ -866,6 +1047,10 @@ static void cleanup(int sig) {
 
 	jack_ringbuffer_free(rb_atom_to_ui);
 	jack_ringbuffer_free(rb_atom_from_ui);
+
+#ifdef HAVE_LIBLO
+	jack_ringbuffer_free(rb_osc_to_ui);
+#endif
 
 	free(input_port);
 	free(output_port);
@@ -888,6 +1073,16 @@ static void cleanup(int sig) {
 }
 
 static void run_one(LV2_Atom_Sequence *data) {
+
+#ifdef HAVE_LIBLO
+	while (jack_ringbuffer_read_space(rb_osc_to_ui) >= sizeof(uint32_t) + sizeof(float)) {
+		uint32_t idx;
+		float val;
+		jack_ringbuffer_read(rb_osc_to_ui, (char*) &idx, sizeof(uint32_t));
+		jack_ringbuffer_read(rb_osc_to_ui, (char*) &val, sizeof(float));
+		plugin_gui->port_event(gui_instance, idx, sizeof(float), 0, &val);
+	}
+#endif
 
 	while (jack_ringbuffer_read_space(rb_ctrl_to_ui) >= sizeof(uint32_t) + sizeof(float)) {
 		uint32_t idx;
@@ -985,12 +1180,18 @@ static void list_plugins (void) {
 static void print_usage (void) {
 #ifdef X42_MULTIPLUGIN
 	printf ("x42-%s - JACK %s\n\n", APPNAME, X42_MULTIPLUGIN_NAME);
-	printf ("Usage: x42-%s [ Plugin-ID or URI ]\n\n", APPNAME);
+	printf ("Usage: x42-%s [ OPTIONS ] [ Plugin-ID or URI ]\n\n", APPNAME);
 	printf ("This is a standalone JACK application of a collection of LV2 plugins.\n"
 		"Use ID -1, -l or --list for a dedicated list of included plugins.\n"
 		"By default the first listed plugin (ID 0) is used.\n\n");
 	printf ("List if available plugins: (ID \"Name\" URI)\n");
 	list_plugins();
+	printf ("\nOptions:\n"
+" -h, --help                Display this help and exit.\n"
+" -l, --list                Print list of available plugins and exit.\n"
+" -O <port>, --osc <port>   Listen for OSC messages on the given UDP port.\n"
+" -V, --version             Print version information and exit.\n"
+		);
 	printf ("\nSee also: <%s>\n", X42_MULTIPLUGIN_URI);
 #else
 
@@ -1002,10 +1203,15 @@ static void print_usage (void) {
 	const LV2_Descriptor* d = inst->lv2_descriptor(inst->dsp_descriptor_id);
 
 	printf ("x42-%s - JACK %s\n\n", APPNAME, inst->plugin_human_id);
-	printf ("Usage: x42-%s\n\n", APPNAME);
+	printf ("Usage: x42-%s [ OPTIONS ]\n\n", APPNAME);
 	printf ("This is a standalone JACK application of the LV2 plugin:\n"
 	        "\"%s\".\n", inst->plugin_human_id);
 
+	printf ("\nOptions:\n"
+" -h, --help                Display this help and exit.\n"
+" -O <port>, --osc <port>   Listen for OSC messages on the given UDP port.\n"
+" -V, --version             Print version information and exit.\n"
+		);
 	printf ("\nSee also: <%s>\n", d->URI);
 #endif
 	printf ("Website: <http://x42-plugins.com/>\n");
@@ -1020,45 +1226,78 @@ static void print_version (void) {
 }
 
 int main (int argc, char **argv) {
+	int c;
 	int rv = 0;
+	int osc_port = 0;
 	uint32_t c_ain  = 0;
 	uint32_t c_aout = 0;
 	uint32_t c_ctrl = 0;
 
-	if (argc > 2) {
-		print_usage();
-		return -1;
-	}
-	if (argc > 1 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help"))) {
-		print_usage();
-		return 0;
-	}
-	if (argc > 1 && (!strcmp(argv[1], "-V") || !strcmp(argv[1], "--version"))) {
-		print_version();
-		return 0;
+	const struct option long_options[] = {
+		{ "help",       no_argument,       0, 'h' },
+		{ "list",       no_argument,       0, 'l' },
+		{ "osc",        required_argument, 0, 'O' },
+		{ "version",    no_argument,       0, 'V' },
+	};
+
+	const char *optstring = "hlO:V1";
+
+	while ((c = getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
+		switch (c) {
+			case 'h':
+				print_usage();
+				return 0;
+				break;
+			case '1': // catch -1, backward compat
+			case 'l':
+#ifdef X42_MULTIPLUGIN
+				list_plugins();
+#endif
+				return 0;
+				break;
+			case 'O':
+				osc_port = atoi (optarg);
+#ifndef HAVE_LIBLO
+				fprintf(stderr, "This version was compiled without OSC support.\n");
+#endif
+				break;
+			case 'V':
+				print_version();
+				return 0;
+				break;
+			default:
+				// silently ignore additional session options on OSX
+#ifndef __APPLE__
+				fprintf(stderr, "invalid argument.\n");
+				print_usage();
+				return(1);
+#endif
+				break;
+		}
 	}
 
 	// TODO autoconnect option.
+	// TODO allow to set initial params
 
 #ifdef X42_MULTIPLUGIN
-	if (argc > 1 && (atoi(argv[1]) < 0 || !strcmp(argv[1], "-l") || !strcmp(argv[1], "--list"))) {
+	inst = NULL;
+	if (optind < argc && atoi (argv[optind]) < 0) {
 		list_plugins();
 		return 0;
-	}
 
-	inst = NULL;
-	if (argc > 1 && strlen(argv[1]) > 2 && atoi(argv[1]) == 0) {
+	}
+	if (optind < argc && strlen(argv[optind]) > 2 && atoi (argv[optind]) == 0) {
 		unsigned int i;
 		for (i = 0; i < sizeof(_plugins) / sizeof(RtkLv2Description); ++i) {
 			const LV2_Descriptor* d = _plugins[i].lv2_descriptor(_plugins[i].dsp_descriptor_id);
-			if (strstr(d->URI, argv[1]) || strstr(_plugins[i].plugin_human_id, argv[1])) {
+			if (strstr(d->URI, argv[optind]) || strstr(_plugins[i].plugin_human_id, argv[optind])) {
 				inst = &_plugins[i];
 				break;
 			}
 		}
 	}
-	if (argc > 1 && !inst && atoi(argv[1]) >= 0) {
-		unsigned int plugid = atoi(argv[1]);
+	if (optind < argc && !inst && atoi (argv[optind]) >= 0) {
+		unsigned int plugid = atoi (argv[optind]);
 		if (plugid < (sizeof(_plugins) / sizeof(RtkLv2Description))) {
 			inst = &_plugins[plugid];
 		}
@@ -1154,6 +1393,10 @@ int main (int argc, char **argv) {
 
 	rb_atom_to_ui = jack_ringbuffer_create((UPDATE_FREQ_RATIO) * inst->min_atom_bufsiz);
 	rb_atom_from_ui = jack_ringbuffer_create((UPDATE_FREQ_RATIO) * inst->min_atom_bufsiz);
+
+#ifdef HAVE_LIBLO
+	rb_osc_to_ui = jack_ringbuffer_create((UPDATE_FREQ_RATIO) * inst->nports_ctrl * 2 * sizeof(float));
+#endif
 
 	/* reolve descriptors */
 	plugin_dsp = inst->lv2_descriptor(inst->dsp_descriptor_id);
@@ -1303,6 +1546,12 @@ int main (int argc, char **argv) {
 	}
 
 	jack_portconnect(JACK_AUTOCONNECT);
+
+#ifdef HAVE_LIBLO
+	if (osc_port > 0) {
+		start_osc_server (osc_port);
+	}
+#endif
 
 #ifndef _WIN32
 	signal (SIGHUP, catchsig);
