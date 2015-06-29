@@ -206,6 +206,9 @@ struct LV2Port {
 	const char *name;
 	enum PortType porttype;
 	float val_default;
+	float val_min;
+	float val_max;
+	const char *doc;
 };
 
 typedef struct _RtkLv2Description {
@@ -963,6 +966,14 @@ static int oscb_parameter (const char *path, const char *types, lo_arg **argv, i
 		return 0;
 	}
 
+	if (inst->ports[port_index].val_min < inst->ports[port_index].val_max) {
+		if (val < inst->ports[port_index].val_min || val > inst->ports[port_index].val_max) {
+			fprintf (stderr, "OSC: Value out of bounds %f <= %f <= %f\n",
+					inst->ports[port_index].val_min, val, inst->ports[port_index].val_max);
+			return 0;
+		}
+	}
+
 	//fprintf (stdout, "OSC: %d,  %d -> %f\n", port, port_index, val);
 
 	write_function (NULL, port_index, sizeof (float), 0, (const void*) &val);
@@ -1244,6 +1255,7 @@ static void print_usage (void) {
 " -l, --list                Print list of available plugins and exit.\n"
 #endif
 " -O <port>, --osc <port>   Listen for OSC messages on the given UDP port.\n"
+" -P, --portlist            Print control port list on startup.\n"
 " --osc-doc                 Print available OSC commands and exit.\n"
 " -V, --version             Print version information and exit.\n"
 			);
@@ -1264,11 +1276,35 @@ static void print_version (void) {
 		"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n");
 }
 
+static void dump_control_ports (void) {
+	printf ("# Control Port List\n");
+	for (uint32_t i = 0; i < inst->nports_ctrl; ++i) {
+		const uint32_t pi = portmap_rctl[i];
+		if (inst->ports[pi].porttype != CONTROL_IN) {
+			continue;
+		}
+		printf ("%3d: %s", i, inst->ports[pi].name);
+
+		if (inst->ports[pi].val_min < inst->ports[pi].val_max) {
+			printf (" (min: %.2f, max: %.2f)", inst->ports[pi].val_min, inst->ports[pi].val_max);
+		}
+
+		if (inst->ports[pi].val_default != nan) {
+			printf (" [default: %.2f]", inst->ports[pi].val_default);
+		}
+
+		if (inst->ports[pi].doc) {
+			printf (" -- %s", inst->ports[pi].doc);
+		}
+		printf ("\n");
+	}
+}
 
 int main (int argc, char **argv) {
 	int c;
 	int rv = 0;
 	int osc_port = 0;
+	bool dump_ports = false;
 	uint32_t c_ain  = 0;
 	uint32_t c_aout = 0;
 	uint32_t c_ctrl = 0;
@@ -1278,10 +1314,11 @@ int main (int argc, char **argv) {
 		{ "list",       no_argument,       0, 'l' },
 		{ "osc",        required_argument, 0, 'O' },
 		{ "osc-doc",    no_argument,       0,  0x100 },
+		{ "portlist",   no_argument,       0, 'P' },
 		{ "version",    no_argument,       0, 'V' },
 	};
 
-	const char *optstring = "hlO:V1";
+	const char *optstring = "hlO:PV1";
 
 	while ((c = getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
 		switch (c) {
@@ -1301,6 +1338,9 @@ int main (int argc, char **argv) {
 #ifndef HAVE_LIBLO
 				fprintf(stderr, "This version was compiled without OSC support.\n");
 #endif
+				break;
+			case 'P':
+				dump_ports = true;
 				break;
 			case 'V':
 				print_version();
@@ -1535,6 +1575,10 @@ int main (int argc, char **argv) {
 		uri_time_beatsPerBar    = uri_to_id(NULL, LV2_TIME__beatsPerBar);
 		uri_time_beatsPerMinute = uri_to_id(NULL, LV2_TIME__beatsPerMinute);
 		lv2_atom_forge_init(&lv2_forge, &uri_map);
+	}
+
+	if (dump_ports) {
+		dump_control_ports();
 	}
 
 	if (jack_portsetup()) {
