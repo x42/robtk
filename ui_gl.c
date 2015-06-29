@@ -577,6 +577,7 @@ static void queue_draw(RobWidget *rw) {
 static void queue_tiny_rect(RobWidget *rw, cairo_rectangle_t *a) {
 	if (!rw->cached_position) {
 		rw->redraw_pending = true;
+		queue_draw(rw);
 		return;
 	}
 	GlMetersLV2UI * self =
