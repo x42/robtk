@@ -910,16 +910,6 @@ static void oscb_error (int num, const char *m, const char *path) {
 	ev.buffer[2] = argv[2]->i & 0x7f;               \
 	osc_queue_midi_event (&ev);
 
-static int oscb_cc (const char *path, const char *types, lo_arg **argv, int argc, lo_message msg, void *user_data) {
-	MIDI_Q3(0xb0);
-	return 0;
-}
-
-static int oscb_pc (const char *path, const char *types, lo_arg **argv, int argc, lo_message msg, void *user_data) {
-	MIDI_Q3(0xc0);
-	return 0;
-}
-
 static int oscb_noteon (const char *path, const char *types, lo_arg **argv, int argc, lo_message msg, void *user_data) {
 	MIDI_Q3(0x90);
 	return 0;
@@ -927,6 +917,21 @@ static int oscb_noteon (const char *path, const char *types, lo_arg **argv, int 
 
 static int oscb_noteoff (const char *path, const char *types, lo_arg **argv, int argc, lo_message msg, void *user_data) {
 	MIDI_Q3(0x80);
+	return 0;
+}
+
+static int oscb_cc (const char *path, const char *types, lo_arg **argv, int argc, lo_message msg, void *user_data) {
+	MIDI_Q3(0xb0);
+	return 0;
+}
+
+static int oscb_pc (const char *path, const char *types, lo_arg **argv, int argc, lo_message msg, void *user_data) {
+	osc_midi_event_t ev;
+	ev.size = 2;
+	ev.buffer[0] = 0xc0 | (argv[0]->i & 0x0f);
+	ev.buffer[1] = argv[1]->i & 0x7f;
+	ev.buffer[2] = 0x00;
+	osc_queue_midi_event (&ev);
 	return 0;
 }
 
@@ -943,10 +948,10 @@ static int oscb_rawmidi (const char *path, const char *types, lo_arg **argv, int
 static int oscb_parameter (const char *path, const char *types, lo_arg **argv, int argc, lo_message msg, void *user_data) {
 	assert (argc == 2 && !strcmp (types, "if"));
 
-	const int port = argv[0]->i;
+	const uint32_t port = argv[0]->i;
 	const float val = argv[1]->f;
 
-	if (inst->nports_ctrl < port || port < 0) {
+	if (inst->nports_ctrl < port) {
 		fprintf (stderr, "OSC: Invalid Parameter 0 <= %d < %d\n", port, inst->nports_ctrl);
 		return 0;
 	}
@@ -970,6 +975,31 @@ static int oscb_parameter (const char *path, const char *types, lo_arg **argv, i
 	return 0;
 }
 
+struct osc_command {
+	const char *path;
+	const char *typespec;
+	lo_method_handler handler;
+	const char *documentation;
+};
+
+static struct osc_command OSCC[] = {
+	{"/x42/parameter",    "if",  &oscb_parameter, "Set Control Input value. control-port, value"},
+	{"/x42/midi/raw",     "m",   &oscb_rawmidi,   "Send raw midi message to plugin"},
+	{"/x42/midi/cc",      "iii", &oscb_cc,        "Send midi control-change: channel, parameter, value"},
+	{"/x42/midi/pc",      "ii",  &oscb_pc,        "Send midi program-change: channel, program"},
+	{"/x42/midi/noteon",  "iii", &oscb_noteon,    "Send midi note on: channel, key, velocity"},
+	{"/x42/midi/noteoff", "iii", &oscb_noteoff,   "Send midi note off: channel, key, velocity"},
+};
+
+static void print_oscdoc (void) {
+	printf("# X42 OSC methods. Format:\n");
+	printf("# Path <space> Typespec <space> Documentation <newline>\n");
+	printf("#######################################################\n");
+	for (size_t i = 0; i < sizeof(OSCC) / sizeof(struct osc_command); ++i) {
+		printf("%s %s %s\n", OSCC[i].path, OSCC[i].typespec, OSCC[i].documentation);
+	}
+}
+
 static int start_osc_server (int osc_port) {
 	char tmp[8];
 	uint32_t port = (osc_port > 100 && osc_port < 60000) ? osc_port : 9988;
@@ -986,12 +1016,10 @@ static int start_osc_server (int osc_port) {
 		free (urlstr);
 	}
 
-	lo_server_thread_add_method (osc_server, "/x42/parameter", "if", oscb_parameter, NULL);
-	lo_server_thread_add_method (osc_server, "/x42/midi/raw", "m", oscb_rawmidi, NULL);
-	lo_server_thread_add_method (osc_server, "/x42/midi/cc", "iii", oscb_cc, NULL);
-	lo_server_thread_add_method (osc_server, "/x42/midi/pc", "iii", oscb_pc, NULL);
-	lo_server_thread_add_method (osc_server, "/x42/midi/noteon", "iii", oscb_noteon, NULL);
-	lo_server_thread_add_method (osc_server, "/x42/midi/noteoff", "iii", oscb_noteoff, NULL);
+	for (size_t i = 0; i < sizeof(OSCC) / sizeof(struct osc_command); ++i) {
+		lo_server_thread_add_method (osc_server, OSCC[i].path, OSCC[i].typespec, OSCC[i].handler, NULL);
+	}
+
 	lo_server_thread_start(osc_server);
 
 	return 0;
@@ -1186,13 +1214,7 @@ static void print_usage (void) {
 		"By default the first listed plugin (ID 0) is used.\n\n");
 	printf ("List if available plugins: (ID \"Name\" URI)\n");
 	list_plugins();
-	printf ("\nOptions:\n"
-" -h, --help                Display this help and exit.\n"
-" -l, --list                Print list of available plugins and exit.\n"
-" -O <port>, --osc <port>   Listen for OSC messages on the given UDP port.\n"
-" -V, --version             Print version information and exit.\n"
-		);
-	printf ("\nSee also: <%s>\n", X42_MULTIPLUGIN_URI);
+
 #else
 
 #if defined X42_PLUGIN_STRUCT
@@ -1206,12 +1228,29 @@ static void print_usage (void) {
 	printf ("Usage: x42-%s [ OPTIONS ]\n\n", APPNAME);
 	printf ("This is a standalone JACK application of the LV2 plugin:\n"
 	        "\"%s\".\n", inst->plugin_human_id);
+#endif
+
+	printf ("\nUsage:\n"
+"All control elements are operated in using the mouse:\n"
+" Click+Drag     left/down: decrease, right/up: increase value. Hold the Ctrl key to increase sensitivity.\n"
+" Shift+Click    reset to default value\n"
+" Scroll-wheel    up/down by 1 step (smallest possible adjustment for given setting). Rapid continuous scrolling increases the step-size.\n"
+"The application can be closed by sending a SIGTERM (CTRL+C) on the command-line of by closing the window.\n"
+			);
 
 	printf ("\nOptions:\n"
 " -h, --help                Display this help and exit.\n"
+#ifdef X42_MULTIPLUGIN
+" -l, --list                Print list of available plugins and exit.\n"
+#endif
 " -O <port>, --osc <port>   Listen for OSC messages on the given UDP port.\n"
+" --osc-doc                 Print available OSC commands and exit.\n"
 " -V, --version             Print version information and exit.\n"
-		);
+			);
+
+#ifdef X42_MULTIPLUGIN_URI
+	printf ("\nSee also: <%s>\n", X42_MULTIPLUGIN_URI);
+#else
 	printf ("\nSee also: <%s>\n", d->URI);
 #endif
 	printf ("Website: <http://x42-plugins.com/>\n");
@@ -1225,6 +1264,7 @@ static void print_version (void) {
 		"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n");
 }
 
+
 int main (int argc, char **argv) {
 	int c;
 	int rv = 0;
@@ -1237,6 +1277,7 @@ int main (int argc, char **argv) {
 		{ "help",       no_argument,       0, 'h' },
 		{ "list",       no_argument,       0, 'l' },
 		{ "osc",        required_argument, 0, 'O' },
+		{ "osc-doc",    no_argument,       0,  0x100 },
 		{ "version",    no_argument,       0, 'V' },
 	};
 
@@ -1263,6 +1304,15 @@ int main (int argc, char **argv) {
 				break;
 			case 'V':
 				print_version();
+				return 0;
+				break;
+
+			case 0x100:
+#ifndef HAVE_LIBLO
+				fprintf(stderr, "This version was compiled without OSC support.\n");
+#else
+				print_oscdoc();
+#endif
 				return 0;
 				break;
 			default:
