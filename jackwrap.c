@@ -1320,6 +1320,8 @@ int main (int argc, char **argv) {
 
 	const char *optstring = "hlO:PV1";
 
+	if (optind < argc && !strncmp (argv[optind], "-psn_0", 6)) {++optind;}
+
 	while ((c = getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
 		switch (c) {
 			case 'h':
