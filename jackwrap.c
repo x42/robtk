@@ -437,19 +437,22 @@ static int process (jack_nframes_t nframes, void *arg) {
 				seq +=  padded_size;
 			}
 		}
-		// TODO only if UI..?
-		while (jack_ringbuffer_read_space(rb_atom_from_ui) > sizeof(LV2_Atom)) {
-			LV2_Atom a;
-			jack_ringbuffer_read(rb_atom_from_ui, (char *) &a, sizeof(LV2_Atom));
-			uint32_t padded_size = atom_in->atom.size + a.size + sizeof(int64_t);
-			if (inst->min_atom_bufsiz > padded_size) {
-				memset(seq, 0, sizeof(int64_t)); // LV2_Atom_Event->time
-				seq += sizeof(int64_t);
-				jack_ringbuffer_read(rb_atom_from_ui, (char *) seq, a.size);
-				seq += a.size;
-				atom_in->atom.size += a.size + sizeof(int64_t);
+
+		if (gui_instance) {
+			while (jack_ringbuffer_read_space(rb_atom_from_ui) > sizeof(LV2_Atom)) {
+				LV2_Atom a;
+				jack_ringbuffer_read(rb_atom_from_ui, (char *) &a, sizeof(LV2_Atom));
+				uint32_t padded_size = atom_in->atom.size + a.size + sizeof(int64_t);
+				if (inst->min_atom_bufsiz > padded_size) {
+					memset(seq, 0, sizeof(int64_t)); // LV2_Atom_Event->time
+					seq += sizeof(int64_t);
+					jack_ringbuffer_read(rb_atom_from_ui, (char *) seq, a.size);
+					seq += a.size;
+					atom_in->atom.size += a.size + sizeof(int64_t);
+				}
 			}
 		}
+
 		if (inst->nports_midi_in > 0) {
 #ifdef HAVE_LIBLO
 			/*inject OSC midi events, use time 0 */
@@ -536,20 +539,22 @@ static int process (jack_nframes_t nframes, void *arg) {
 	}
 
 	/* create port-events for change values */
-	// TODO only if UI..?
-	for (uint32_t p = 0; p < inst->nports_ctrl; p++) {
-		if (inst->ports[portmap_rctl[p]].porttype != CONTROL_OUT) continue;
 
-		if (plugin_ports_pre[p] != plugin_ports_post[p]) {
-#if 0
-			if (TODO this port reportsLatency) {
-				plugin_latency = rintf(plugin_ports_pre[p]);
-				jack_recompute_total_latencies(j_client);
-			}
+	if (gui_instance) {
+		for (uint32_t p = 0; p < inst->nports_ctrl; p++) {
+			if (inst->ports[portmap_rctl[p]].porttype != CONTROL_OUT) continue;
+
+			if (plugin_ports_pre[p] != plugin_ports_post[p]) {
+#if 0 // TODO regardless of UI.. use a dedicated port-ID
+				if (TODO this port reportsLatency) {
+					plugin_latency = rintf(plugin_ports_pre[p]);
+					jack_recompute_total_latencies(j_client);
+				}
 #endif
-			if (jack_ringbuffer_write_space(rb_ctrl_to_ui) >= sizeof(uint32_t) + sizeof(float)) {
-				jack_ringbuffer_write(rb_ctrl_to_ui, (char *) &portmap_rctl[p], sizeof(uint32_t));
-				jack_ringbuffer_write(rb_ctrl_to_ui, (char *) &plugin_ports_pre[p], sizeof(float));
+				if (jack_ringbuffer_write_space(rb_ctrl_to_ui) >= sizeof(uint32_t) + sizeof(float)) {
+					jack_ringbuffer_write(rb_ctrl_to_ui, (char *) &portmap_rctl[p], sizeof(uint32_t));
+					jack_ringbuffer_write(rb_ctrl_to_ui, (char *) &plugin_ports_pre[p], sizeof(float));
+				}
 			}
 		}
 	}
@@ -561,8 +566,7 @@ static int process (jack_nframes_t nframes, void *arg) {
 
 	/* Atom sequence port-events */
 	if (inst->nports_atom_out + inst->nports_midi_out > 0 && atom_out->atom.size > sizeof(LV2_Atom)) {
-		// TODO only if UI..?
-		if (jack_ringbuffer_write_space(rb_atom_to_ui) >= atom_out->atom.size + 2 * sizeof(LV2_Atom)) {
+		if (gui_instance && jack_ringbuffer_write_space(rb_atom_to_ui) >= atom_out->atom.size + 2 * sizeof(LV2_Atom)) {
 			LV2_Atom a = {atom_out->atom.size + (uint32_t) sizeof(LV2_Atom), 0};
 			jack_ringbuffer_write(rb_atom_to_ui, (char *) &a, sizeof(LV2_Atom));
 			jack_ringbuffer_write(rb_atom_to_ui, (char *) atom_out, a.size);
@@ -587,12 +591,14 @@ static int process (jack_nframes_t nframes, void *arg) {
 	}
 
 	/* wake up UI */
-	if (jack_ringbuffer_read_space(rb_ctrl_to_ui) >= sizeof(uint32_t) + sizeof(float)
-			|| jack_ringbuffer_read_space(rb_atom_to_ui) > sizeof(LV2_Atom)
+	if (gui_instance && (
+				   jack_ringbuffer_read_space(rb_ctrl_to_ui) >= sizeof(uint32_t) + sizeof(float)
+				|| jack_ringbuffer_read_space(rb_atom_to_ui) > sizeof(LV2_Atom)
 #ifdef HAVE_LIBLO
-			|| jack_ringbuffer_read_space(rb_osc_to_ui) >= sizeof(uint32_t) + sizeof(float)
+				|| jack_ringbuffer_read_space(rb_osc_to_ui) >= sizeof(uint32_t) + sizeof(float)
 #endif
-			) {
+			    )
+	   ) {
 		if (pthread_mutex_trylock (&gui_thread_lock) == 0) {
 			pthread_cond_signal (&data_ready);
 			pthread_mutex_unlock (&gui_thread_lock);
