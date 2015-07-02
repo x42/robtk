@@ -202,6 +202,11 @@ struct DelayBuffer {
 	float delay_buffer[MAXDELAY];
 };
 
+struct PValue {
+	uint32_t port_idx;
+	float    value;
+};
+
 struct LV2Port {
 	const char *name;
 	enum PortType porttype;
@@ -977,7 +982,7 @@ static int oscb_parameter (const char *path, const char *types, lo_arg **argv, i
 	const uint32_t port = argv[0]->i;
 	const float val = argv[1]->f;
 
-	if (inst->nports_ctrl < port) {
+	if (inst->nports_ctrl <= port) {
 		fprintf (stderr, "OSC: Invalid Parameter 0 <= %d < %d\n", port, inst->nports_ctrl);
 		return 0;
 	}
@@ -1130,6 +1135,8 @@ static void cleanup(int sig) {
 	free(portmap_a_out);
 	free(portmap_ctrl);
 	free(portmap_rctl);
+	free(atom_in);
+	free(atom_out);
 	free_uri_map();
 	fprintf(stderr, "bye.\n");
 }
@@ -1278,6 +1285,8 @@ static void print_usage (void) {
 " -l, --list                Print list of available plugins and exit.\n"
 #endif
 " -O <port>, --osc <port>   Listen for OSC messages on the given UDP port.\n"
+" -p <idx>:<val>, --port <idx>:<val>\n"
+" -                         Set initial value for given control port.\n"
 " -P, --portlist            Print control port list on startup.\n"
 " --osc-doc                 Print available OSC commands and exit.\n"
 " -V, --version             Print version information and exit.\n"
@@ -1300,7 +1309,7 @@ static void print_version (void) {
 }
 
 static void dump_control_ports (void) {
-	printf ("# Control Port List\n");
+	printf ("# Input Control Port List (%d ports)\n", inst->nports_ctrl);
 	for (uint32_t i = 0; i < inst->nports_ctrl; ++i) {
 		const uint32_t pi = portmap_rctl[i];
 		if (inst->ports[pi].porttype != CONTROL_IN) {
@@ -1321,6 +1330,7 @@ static void dump_control_ports (void) {
 		}
 		printf ("\n");
 	}
+	printf ("### End Port List\n");
 }
 
 int main (int argc, char **argv) {
@@ -1331,21 +1341,25 @@ int main (int argc, char **argv) {
 	uint32_t c_ain  = 0;
 	uint32_t c_aout = 0;
 	uint32_t c_ctrl = 0;
+	uint32_t n_pval = 0;
+	PValue   *pval  = NULL;
 
 	const struct option long_options[] = {
 		{ "help",       no_argument,       0, 'h' },
 		{ "list",       no_argument,       0, 'l' },
 		{ "osc",        required_argument, 0, 'O' },
 		{ "osc-doc",    no_argument,       0,  0x100 },
+		{ "port",       required_argument, 0, 'p' },
 		{ "portlist",   no_argument,       0, 'P' },
 		{ "version",    no_argument,       0, 'V' },
 	};
 
-	const char *optstring = "hlO:PV1";
+	const char *optstring = "hlO:p:PV1";
 
 	if (optind < argc && !strncmp (argv[optind], "-psn_0", 6)) {++optind;}
 
 	while ((c = getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
+		char *tmp;
 		switch (c) {
 			case 'h':
 				print_usage();
@@ -1361,8 +1375,16 @@ int main (int argc, char **argv) {
 			case 'O':
 				osc_port = atoi (optarg);
 #ifndef HAVE_LIBLO
-				fprintf(stderr, "This version was compiled without OSC support.\n");
+				fprintf (stderr, "This version was compiled without OSC support.\n");
 #endif
+				break;
+			case 'p':
+				if ((tmp = strchr (optarg, ':')) != NULL && *(++tmp)) {
+					pval = (PValue*) realloc (pval, (n_pval + 1) * sizeof (struct PValue));
+					pval[n_pval].port_idx = atoi (optarg);
+					pval[n_pval].value = atof (tmp);
+					++n_pval;
+				}
 				break;
 			case 'P':
 				dump_ports = true;
@@ -1374,7 +1396,7 @@ int main (int argc, char **argv) {
 
 			case 0x100:
 #ifndef HAVE_LIBLO
-				fprintf(stderr, "This version was compiled without OSC support.\n");
+				fprintf (stderr, "This version was compiled without OSC support.\n");
 #else
 				print_oscdoc();
 #endif
@@ -1383,7 +1405,7 @@ int main (int argc, char **argv) {
 			default:
 				// silently ignore additional session options on OSX
 #ifndef __APPLE__
-				fprintf(stderr, "invalid argument.\n");
+				fprintf (stderr, "invalid argument.\n");
 				print_usage();
 				return(1);
 #endif
@@ -1432,7 +1454,7 @@ int main (int argc, char **argv) {
 
 #ifdef USE_WEAK_JACK
 	if (have_libjack()) {
-		fprintf(stderr, "JACK is not available. http://jackaudio.org/\n");
+		fprintf (stderr, "JACK is not available. http://jackaudio.org/\n");
 #ifdef _WIN32
 		MessageBox(NULL, TEXT(
 					"JACK is not available.\n"
@@ -1513,18 +1535,18 @@ int main (int argc, char **argv) {
 	rb_osc_to_ui = jack_ringbuffer_create((UPDATE_FREQ_RATIO) * inst->nports_ctrl * 2 * sizeof(float));
 #endif
 
-	/* reolve descriptors */
+	/* resolve descriptors */
 	plugin_dsp = inst->lv2_descriptor(inst->dsp_descriptor_id);
 	plugin_gui = inst->lv2ui_descriptor(inst->gui_descriptor_id);
 
 	if (!plugin_dsp) {
-		fprintf(stderr, "cannot resolve LV2 descriptor\n");
+		fprintf (stderr, "cannot resolve LV2 descriptor\n");
 		rv |= 2;
 		goto out;
 	}
 	/* jack-open -> samlerate */
 	if (init_jack(extui_host.plugin_human_id)) {
-		fprintf(stderr, "cannot connect to JACK.\n");
+		fprintf (stderr, "cannot connect to JACK.\n");
 #ifdef _WIN32
 		MessageBox (NULL, TEXT(
 					"Cannot connect to JACK.\n"
@@ -1545,7 +1567,7 @@ int main (int argc, char **argv) {
 	/* init plugin */
 	plugin_instance = plugin_dsp->instantiate(plugin_dsp, j_samplerate, NULL, features);
 	if (!plugin_instance) {
-		fprintf(stderr, "instantiation failed\n");
+		fprintf (stderr, "instantiation failed\n");
 		rv |= 2;
 		goto out;
 	}
@@ -1578,7 +1600,7 @@ int main (int argc, char **argv) {
 				plugin_dsp->connect_port(plugin_instance, p , atom_out);
 				break;
 			default:
-				fprintf(stderr, "yet unsupported port..\n");
+				fprintf (stderr, "yet unsupported port..\n");
 				break;
 		}
 	}
@@ -1604,6 +1626,33 @@ int main (int argc, char **argv) {
 
 	if (dump_ports) {
 		dump_control_ports();
+	}
+
+	// apply user settings
+	for (uint32_t i = 0; i < n_pval; ++i) {
+		if (pval[i].port_idx >= inst->nports_ctrl) {
+			fprintf (stderr, "Invalid Parameter 0 <= %d < %d\n", pval[i].port_idx, inst->nports_ctrl);
+			continue;
+		}
+
+		const uint32_t port_index = portmap_rctl[pval[i].port_idx];
+
+		if (inst->ports[port_index].porttype != CONTROL_IN) {
+			fprintf (stderr, "mapped port (%d) for port %d is not a control input.\n", port_index, pval[i].port_idx);
+			continue;
+		}
+
+		if (inst->ports[port_index].val_min < inst->ports[port_index].val_max) {
+			if (pval[i].value < inst->ports[port_index].val_min || pval[i].value > inst->ports[port_index].val_max) {
+				fprintf (stderr, "Value for port %d out of bounds %f <= %f <= %f\n",
+						pval[i].port_idx,
+						inst->ports[port_index].val_min, pval[i].value, inst->ports[port_index].val_max);
+				continue;
+			}
+		}
+
+		//fprintf (stdout, "Port: %d,  %d -> %f\n", pval[i].port_idx, port_index, pval[i].value);
+		plugin_ports_pre[pval[i].port_idx] = pval[i].value;
 	}
 
 	if (jack_portsetup()) {
@@ -1703,6 +1752,7 @@ int main (int argc, char **argv) {
 	}
 
 out:
+	free (pval);
 	cleanup(0);
 #ifdef _WIN32
 	pthread_win32_process_detach_np();
