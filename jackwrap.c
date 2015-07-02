@@ -198,7 +198,7 @@ struct DelayBuffer {
 	int c_dly; // current delay
 	int w_ptr;
 	int r_ptr;
-	float out_buffer[MAXPERIOD]; // TODO dynamically allocate, use jack-period
+	float out_buffer[MAXPERIOD];
 	float delay_buffer[MAXDELAY];
 };
 
@@ -353,6 +353,23 @@ delay_port (struct DelayBuffer *dly, uint32_t n_samples, float *in)
  */
 
 static int process (jack_nframes_t nframes, void *arg) {
+	if (nframes > MAXPERIOD) {
+		static bool warned_max_period = false;
+		if (!warned_max_period) {
+			warned_max_period = true;
+			fprintf (stderr, "Jack Period Size > %d is not supported (current %d)\n", MAXPERIOD , nframes);
+		}
+		if (inst->nports_midi_out > 0) {
+			void* buf = jack_port_get_buffer(midi_out, nframes);
+			jack_midi_clear_buffer(buf);
+		}
+		for (uint32_t i=0 ; i < inst->nports_audio_out; ++i) {
+			float * bp = (float*) jack_port_get_buffer (output_port[i], nframes);
+			memset (bp, 0, nframes * sizeof (float));
+		}
+		return 0;
+	}
+
 	while (jack_ringbuffer_read_space(rb_ctrl_from_ui) >= sizeof(uint32_t) + sizeof(float)) {
 		uint32_t idx;
 		jack_ringbuffer_read(rb_ctrl_from_ui, (char*) &idx, sizeof(uint32_t));
