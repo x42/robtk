@@ -1286,7 +1286,7 @@ static void print_usage (void) {
 #endif
 " -O <port>, --osc <port>   Listen for OSC messages on the given UDP port.\n"
 " -p <idx>:<val>, --port <idx>:<val>\n"
-" -                         Set initial value for given control port.\n"
+"                           Set initial value for given control port.\n"
 " -P, --portlist            Print control port list on startup.\n"
 " --osc-doc                 Print available OSC commands and exit.\n"
 " -V, --version             Print version information and exit.\n"
