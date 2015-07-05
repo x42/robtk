@@ -1309,7 +1309,17 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 	strcpy(self->gpg_data, "v" VERSION);
 #ifdef _WIN32
 	ExpandEnvironmentStrings("%localappdata%\\"SIGFILE, signature_file0, 1024);
-	ExpandEnvironmentStrings("%localappdata%\\x42_license.txt", signature_file1, 1024);
+	ExpandEnvironmentStrings("%localappdata%\\x42_license.txt", signature_file2, 1024);
+
+	const char * homedrive = getenv("HOMEDRIVE");
+	const char * homepath = getenv("HOMEPATH");
+
+	if (homedrive && homepath && (strlen(homedrive) + strlen(homepath) + strlen(SIGFILE) + 3) < 1024) {
+		sprintf(signature_file1, "%s%s\\%s", homedrive, homepath, SIGFILE);
+	}
+	if (homedrive && homepath && (strlen(homedrive) + strlen(homepath) + strlen(SIGFILE) + 17) < 1024) {
+		sprintf(signature_file3, "%s%s\\x42_license.txt", homedrive, homepath);
+	}
 #else
 	const char * home = getenv("HOME");
 	if (home && (strlen(home) + strlen(SIGFILE) + 3) < 1024) {
