@@ -1304,6 +1304,8 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 	int rc = -1;
 	char signature_file0[1024] = "";
 	char signature_file1[1024] = "";
+	char signature_file2[1024] = "";
+	char signature_file3[1024] = "";
 	strcpy(self->gpg_data, "v" VERSION);
 #ifdef _WIN32
 	ExpandEnvironmentStrings("%localappdata%\\"SIGFILE, signature_file0, 1024);
@@ -1311,18 +1313,28 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 #else
 	const char * home = getenv("HOME");
 	if (home && (strlen(home) + strlen(SIGFILE) + 3) < 1024) {
-		sprintf(signature_file0, "%s/.%s", home, SIGFILE);
+		sprintf(signature_file0, "%s/%s", home, SIGFILE);
+	}
+	if (home && (strlen(home) + strlen(SIGFILE) + 3) < 1024) {
+		sprintf(signature_file1, "%s/.%s", home, SIGFILE);
 	}
 	if (home && (strlen(home) + 18) < 1024) {
-		sprintf(signature_file1, "%s/.x42_license.txt", home);
+		sprintf(signature_file2, "%s/x42_license.txt", home);
+	}
+	if (home && (strlen(home) + 18) < 1024) {
+		sprintf(signature_file3, "%s/.x42_license.txt", home);
 	}
 #endif
 	if (testfile(signature_file0)) {
 		rc = gp3_checksigfile (signature_file0);
 	} else if (testfile(signature_file1)) {
 		rc = gp3_checksigfile (signature_file1);
+	} else if (testfile(signature_file2)) {
+		rc = gp3_checksigfile (signature_file2);
+	} else if (testfile(signature_file3)) {
+		rc = gp3_checksigfile (signature_file3);
 	} else {
-		fprintf(stderr, " *** signature file not found\n");
+		fprintf(stderr, " *** no signature file found\n");
 	}
 	if (rc == 0) {
 		char data[8192];
