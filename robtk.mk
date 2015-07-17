@@ -1,8 +1,8 @@
 RT=$(RW)rtk/
 WD=$(RW)widgets/robtk_
-STRIP=strip
-LIBSTRIPFLAGS=-s
-APPSTRIPFLAGS=-s
+STRIP?=strip
+LIBSTRIPFLAGS?=-s
+APPSTRIPFLAGS?=-s
 WINDRES=$(XWIN)-windres
 UNAME?=$(shell uname)
 
