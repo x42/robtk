@@ -78,7 +78,10 @@
 #endif
 
 #ifndef GL_BGRA
-#define GL_BGRA 0x80E1
+#define GL_BGRA 0x80E1 // GL_BGRA_EXT
+#endif
+#ifndef GL_RGBA8
+#define GL_RGBA8 GL_RGBA
 #endif
 #ifndef GL_TEXTURE_RECTANGLE_ARB
 #define GL_TEXTURE_RECTANGLE_ARB 0x84F5
@@ -133,7 +136,7 @@ static void opengl_draw (int width, int height, unsigned char* surf_data, unsign
 
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texture_id);
-	glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA,
+	glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA8,
 			width, height, /*border*/ 0,
 			GL_BGRA, GL_UNSIGNED_BYTE, surf_data);
 
@@ -166,13 +169,13 @@ static void opengl_reallocate_texture (int width, int height, unsigned int* text
 	glDeleteTextures (1, texture_id);
 	glGenTextures (1, texture_id);
 	glBindTexture (GL_TEXTURE_RECTANGLE_ARB, *texture_id);
-	glTexImage2D (GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA,
+	glTexImage2D (GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA8,
 			width, height, 0,
 			GL_BGRA, GL_UNSIGNED_BYTE, NULL);
 	glTexEnvi (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
 }
 
-static cairo_t* opengl_create_cairo_t ( int width, int height, cairo_surface_t** surface, unsigned char** buffer)
+static cairo_t* opengl_create_cairo_t (int width, int height, cairo_surface_t** surface, unsigned char** buffer)
 {
 	cairo_t* cr;
 	const int bpp = 4;
@@ -250,6 +253,9 @@ typedef struct {
 	cairo_t*         cr;
 	cairo_surface_t* surface;
 	unsigned char*   surf_data;
+#if __BIG_ENDIAN__
+	unsigned char*   surf_data_be;
+#endif
 	unsigned int     texture_id;
 
 	/* top-level */
@@ -732,10 +738,17 @@ static void reallocate_canvas(GlMetersLV2UI* self) {
 	if (self->cr) {
 		glDeleteTextures (1, &self->texture_id);
 		free (self->surf_data);
+#if __BIG_ENDIAN__
+		free (self->surf_data_be);
+#endif
 		cairo_destroy (self->cr);
 	}
 	opengl_reallocate_texture(self->width, self->height, &self->texture_id);
 	self->cr = opengl_create_cairo_t(self->width, self->height, &self->surface, &self->surf_data);
+
+#if __BIG_ENDIAN__
+	self->surf_data_be = (unsigned char*) calloc (4 * self->width * self->height, sizeof (unsigned char));
+#endif
 
 	/* clear top window */
 	cairo_save(self->cr);
@@ -964,7 +977,22 @@ static void onDisplay(PuglView* view) {
 	cairo_expose(self);
 #endif
 	cairo_surface_flush(self->surface);
+#if __BIG_ENDIAN__
+	int x, y;
+	for (y = 0; y < self->height; ++y) {
+		for (x = 0; x < self->width; ++x) {
+			const int off = 4 * (y * self->width + x);
+			self->surf_data_be[off + 0] = self->surf_data[off + 3];
+			self->surf_data_be[off + 1] = self->surf_data[off + 2];
+			self->surf_data_be[off + 2] = self->surf_data[off + 1];
+			self->surf_data_be[off + 3] = self->surf_data[off + 0];
+		}
+	}
+	opengl_draw(self->width, self->height, self->surf_data_be, self->texture_id);
+#else
 	opengl_draw(self->width, self->height, self->surf_data, self->texture_id);
+#endif
+
 }
 
 #define GL_MOUSEBOUNDS \
@@ -1133,6 +1161,9 @@ static void pugl_cleanup(GlMetersLV2UI* self) {
 #endif
 	glDeleteTextures (1, &self->texture_id); // XXX does his need glxContext ?!
 	free (self->surf_data);
+#if __BIG_ENDIAN__
+	free (self->surf_data_be);
+#endif
 	cairo_destroy (self->cr);
 	puglDestroy(self->view);
 }
@@ -1403,6 +1434,9 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 	self->cr = NULL;
 	self->surface= NULL; // not really needed, but hey
 	self->surf_data = NULL; // ditto
+#if __BIG_ENDIAN__
+	self->surf_data_be = NULL;
+#endif
 	self->texture_id = 0; // already too much of this to keep valgrind happy
 	self->xoff = self->yoff = 0; self->xyscale = 1.0;
 	self->gl_initialized   = 0;
