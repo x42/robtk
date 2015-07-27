@@ -432,7 +432,7 @@ static int process (jack_nframes_t nframes, void *arg) {
 			uint32_t padded_size = ((sizeof(LV2_Atom_Event) + size) +  7) & (~7);
 
 			if (inst->min_atom_bufsiz > padded_size) {
-				printf("send time..\n");
+				//printf("send time..\n");
 				LV2_Atom_Event *aev = (LV2_Atom_Event *)seq;
 				aev->time.frames = 0;
 				aev->body.size   = size;
