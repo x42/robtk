@@ -1342,7 +1342,7 @@ int main (int argc, char **argv) {
 	uint32_t c_aout = 0;
 	uint32_t c_ctrl = 0;
 	uint32_t n_pval = 0;
-	stuct PValue *pval  = NULL;
+	struct PValue *pval  = NULL;
 
 	const struct option long_options[] = {
 		{ "help",       no_argument,       0, 'h' },
