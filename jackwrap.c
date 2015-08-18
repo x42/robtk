@@ -1342,7 +1342,7 @@ int main (int argc, char **argv) {
 	uint32_t c_aout = 0;
 	uint32_t c_ctrl = 0;
 	uint32_t n_pval = 0;
-	PValue   *pval  = NULL;
+	stuct PValue *pval  = NULL;
 
 	const struct option long_options[] = {
 		{ "help",       no_argument,       0, 'h' },
@@ -1380,7 +1380,7 @@ int main (int argc, char **argv) {
 				break;
 			case 'p':
 				if ((tmp = strchr (optarg, ':')) != NULL && *(++tmp)) {
-					pval = (PValue*) realloc (pval, (n_pval + 1) * sizeof (struct PValue));
+					pval = (struct PValue*) realloc (pval, (n_pval + 1) * sizeof (struct PValue));
 					pval[n_pval].port_idx = atoi (optarg);
 					pval[n_pval].value = atof (tmp);
 					++n_pval;
