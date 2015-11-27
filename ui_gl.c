@@ -639,8 +639,19 @@ static void robwidget_layout(GlMetersLV2UI * const self, bool setsize, bool init
 		self->width = nox;
 		self->height = noy;
 	} else if (nox > self->width || noy > self->height) {
+#if 0
 		fprintf(stderr, "WINDOW IS SMALLER THAN MINIMUM SIZE! %d > %d h: %d > %d\n",
 				nox, self->width, noy, self->height);
+#endif
+		LVGLResize rsz = plugin_scale_mode(self->ui);
+		if (rsz == LVGL_ZOOM_TO_ASPECT || rsz == LVGL_LAYOUT_TO_FIT) {
+			puglUpdateGeometryConstraints(self->view, nox, noy, rsz == LVGL_ZOOM_TO_ASPECT);
+		}
+	} else if (nox < self->width || noy < self->height) {
+		LVGLResize rsz = plugin_scale_mode(self->ui);
+		if (rsz == LVGL_ZOOM_TO_ASPECT || rsz == LVGL_LAYOUT_TO_FIT) {
+			puglUpdateGeometryConstraints(self->view, nox, noy, rsz == LVGL_ZOOM_TO_ASPECT);
+		}
 	}
 
 	if (rw->size_allocate) {
