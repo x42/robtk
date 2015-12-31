@@ -26,11 +26,7 @@
 
 static PangoFontDescription * get_font_from_theme () {
   PangoFontDescription * rv;
-#ifdef __APPLE__
-	rv = pango_font_description_from_string("Sans 9");
-#else
-	rv = pango_font_description_from_string("Sans 8");
-#endif
+	rv = pango_font_description_from_string("Sans 11px");
 	assert(rv);
 	return rv;
 }
