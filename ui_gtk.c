@@ -28,6 +28,10 @@
 
 #include <gtk/gtk.h>
 
+#warning ****************************************************
+#warning *** GTK UI IS DEPRECATED DO NOT USE THIS ANYMORE ***
+#warning ****************************************************
+
 /*****************************************************************************/
 
 #define ROBTK_MOD_SHIFT GDK_SHIFT_MASK
@@ -42,6 +46,13 @@ static void robtk_close_self(void *h) {
 
 static int robtk_open_file_dialog(void *h, const char *title) {
 	return -1; // TODO
+}
+
+static void robwidget_toplevel_enable_scaling (RobWidget* rw) {
+	;
+}
+static void robtk_queue_scale_change (RobWidget *rw, const float ws) {
+	;
 }
 
 /*****************************************************************************/

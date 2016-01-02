@@ -182,7 +182,7 @@ static cairo_t* opengl_create_cairo_t (int width, int height, cairo_surface_t** 
 
 	*buffer = (unsigned char*) calloc (bpp * width * height, sizeof (unsigned char));
 	if (!*buffer) {
-		fprintf (stderr, "meters.lv2: opengl surface out of memory.\n");
+		fprintf (stderr, "robtk: opengl surface out of memory.\n");
 		return NULL;
 	}
 
@@ -190,14 +190,14 @@ static cairo_t* opengl_create_cairo_t (int width, int height, cairo_surface_t** 
 			CAIRO_FORMAT_ARGB32, width, height, bpp * width);
 	if (cairo_surface_status (*surface) != CAIRO_STATUS_SUCCESS) {
 		free (*buffer);
-		fprintf (stderr, "meters.lv2: failed to create cairo surface\n");
+		fprintf (stderr, "robtk: failed to create cairo surface\n");
 		return NULL;
 	}
 
 	cr = cairo_create (*surface);
 	if (cairo_status (cr) != CAIRO_STATUS_SUCCESS) {
 		free (*buffer);
-		fprintf (stderr, "meters.lv2: cannot create cairo context\n");
+		fprintf (stderr, "robtk: cannot create cairo context\n");
 		return NULL;
 	}
 
@@ -281,6 +281,9 @@ typedef struct {
 	pthread_mutex_t msg_thread_lock;
 	pthread_cond_t data_ready;
 #endif
+
+	void (* expose_overlay)(RobWidget* toplevel, cairo_t* cr, cairo_rectangle_t *ev);
+	float queue_widget_scale;
 
 } GlMetersLV2UI;
 
@@ -375,6 +378,24 @@ static void lc_expose (GlMetersLV2UI * self) {
 #endif
 
 static void cairo_expose(GlMetersLV2UI * self) {
+
+	if (self->expose_overlay) {
+		cairo_rectangle_t expose_area;
+		posrb_read_clear(self->rb); // no fast-track
+		self->tl->resized = TRUE; // full re-expose
+		expose_area.x = expose_area.y = 0;
+		expose_area.width = self->width;
+		expose_area.height = self->height;
+
+		cairo_save(self->cr);
+		self->tl->expose_event(self->tl, self->cr, &expose_area);
+		cairo_restore(self->cr);
+
+		cairo_save(self->cr);
+		self->expose_overlay (self->tl, self->cr, &expose_area);
+		cairo_restore(self->cr);
+		return;
+	}
 
 	/* FAST TRACK EXPOSE */
 	int qq = posrb_read_space(self->rb) / sizeof(RWArea);
@@ -625,6 +646,7 @@ static void robwidget_layout(GlMetersLV2UI * const self, bool setsize, bool init
 
 	int nox, noy;
 
+	rtoplevel_scale (self->tl, self->tl->widget_scale);
 	self->tl->size_request(self->tl, &nox, &noy);
 
 	if (!init && rw->size_limit) {
@@ -639,14 +661,15 @@ static void robwidget_layout(GlMetersLV2UI * const self, bool setsize, bool init
 		self->width = nox;
 		self->height = noy;
 	} else if (nox > self->width || noy > self->height) {
-#if 0
-		fprintf(stderr, "WINDOW IS SMALLER THAN MINIMUM SIZE! %d > %d h: %d > %d\n",
-				nox, self->width, noy, self->height);
-#endif
 		LVGLResize rsz = plugin_scale_mode(self->ui);
 		if (rsz == LVGL_ZOOM_TO_ASPECT || rsz == LVGL_LAYOUT_TO_FIT) {
 			puglUpdateGeometryConstraints(self->view, nox, noy, rsz == LVGL_ZOOM_TO_ASPECT);
+			return;
 		}
+		fprintf(stderr, "WINDOW IS SMALLER THAN MINIMUM SIZE! %d > %d h: %d > %d\n",
+				nox, self->width, noy, self->height);
+		if (nox > self->width) self->width = nox;
+		if (noy > self->height) self->height = noy;
 	} else if (nox < self->width || noy < self->height) {
 		LVGLResize rsz = plugin_scale_mode(self->ui);
 		if (rsz == LVGL_ZOOM_TO_ASPECT || rsz == LVGL_LAYOUT_TO_FIT) {
@@ -694,6 +717,9 @@ static void resize_toplevel(RobWidget *rw, int w, int h) {
 	resize_self(rw);
 	self->resize_in_progress = TRUE;
 	self->resize_toplevel = TRUE;
+#ifdef TIMED_RESHAPE
+	self->queue_reshape = 1;
+#endif
 	puglPostResize(self->view);
 }
 
@@ -715,7 +741,115 @@ static void relayout_toplevel(RobWidget *rw) {
 }
 
 /*****************************************************************************/
+/* UI scaling  */
+
+static void robtk_queue_scale_change (RobWidget *rw, const float ws) {
+	GlMetersLV2UI * const self =
+		(GlMetersLV2UI*) robwidget_get_toplevel_handle(rw);
+	self->queue_widget_scale = ws;
+	queue_draw (rw);
+}
+
+static void set_toplevel_expose_overlay(RobWidget *rw, void (*expose_event)(struct _robwidget*, cairo_t*, cairo_rectangle_t *)){
+	GlMetersLV2UI * const self = (GlMetersLV2UI*) robwidget_get_toplevel_handle(rw);
+	self->expose_overlay = expose_event;
+	rw->resized = TRUE; //full re-expose
+	queue_draw (rw);
+}
+
+static void robtk_expose_ui_scale (RobWidget* handle, cairo_t* cr, cairo_rectangle_t *ev) {
+	cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
+	cairo_rectangle (cr, ev->x, ev->y, ev->width, ev->height);
+	cairo_set_source_rgba (cr, 0, 0, 0, .6);
+	cairo_fill (cr);
+
+	// ui-scale buttons
+	const int nbtn_col = 4;
+	const int nbtn_row = 2;
+	float bt_w = ev->width / (float)(nbtn_col * 2 + 1);
+	float bt_h = ev->height / (float)(nbtn_row * 2 + 1);
+
+	static const char scales[8][8] = { "100%", "110%", "115%", "120%", "125%", "150%", "175%", "200%" };
+	PangoFontDescription *font = pango_font_description_from_string("Sans 24px");
+
+	write_text_full (cr, "GUI Scaling", font, floor(ev->width * .5), floor(bt_h * .5), 0, 2, c_wht);
+
+	pango_font_description_free (font);
+	font = pango_font_description_from_string("Sans 14px");
+
+	for (int y = 0; y < nbtn_row; ++y) {
+		for (int x = 0; x < nbtn_col; ++x) {
+			float x0 = floor ((1 + 2 * x) * bt_w);
+			float y0 = floor ((1 + 2 * y) * bt_h);
+
+			rounded_rectangle (cr, x0, y0, floor (bt_w), floor (bt_h), 8);
+			CairoSetSouerceRGBA(c_wht);
+			cairo_set_line_width(cr, 1.5);
+			cairo_stroke_preserve (cr);
+			cairo_set_source_rgba (cr, .2, .2, .2, 1.0);
+			cairo_fill (cr);
+
+			int pos = x + y * nbtn_col;
+			write_text_full (cr, scales[pos], font, floor(x0 + bt_w * .5), floor(y0 + bt_h * .5), 0, 2, c_wht);
+		}
+	}
+	pango_font_description_free (font);
+}
+
+static bool robtk_event_ui_scale (RobWidget* rw, RobTkBtnEvent *ev) {
+	const int nbtn_col = 4;
+	const int nbtn_row = 2;
+	float bt_w = rw->area.width / (float)(nbtn_col * 2 + 1);
+	float bt_h = rw->area.height / (float)(nbtn_row * 2 + 1);
+	int xp = floor (ev->x / bt_w);
+	int yp = floor (ev->y / bt_h);
+	if ((xp & 1) == 0 || (yp & 1) == 0) {
+		return FALSE;
+	}
+	const int pos = (xp - 1) / 2 + nbtn_col * (yp - 1) / 2;
+	if (pos < 0 || pos >= nbtn_col * nbtn_row) {
+		// possible rounding-error, bottom right corner
+		return FALSE;
+	}
+
+	static const float scales[8] = { 1.0, 1.1, 1.15, 1.20, 1.25, 1.50, 1.75, 2.0 };
+	robtk_queue_scale_change (rw, scales [pos]);
+	return TRUE;
+}
+
+static RobWidget* robtk_tl_mousedown (RobWidget* rw, RobTkBtnEvent *ev) {
+	if (rw->block_events) {
+		if (robtk_event_ui_scale (rw, ev)) {
+			rw->block_events = FALSE;
+			set_toplevel_expose_overlay (rw, NULL);
+		}
+		return NULL;
+	}
+
+	RobWidget *rv = rcontainer_mousedown (rw, ev);
+	if (rv) return rv;
+	if (ev->button != 3) {
+		return NULL;
+	}
+
+	RobWidget * c = decend_into_widget_tree(rw, ev->x, ev->y);
+	if (c && c->mousedown) return NULL;
+
+	rw->block_events = TRUE;
+	set_toplevel_expose_overlay (rw, &robtk_expose_ui_scale);
+	return NULL;
+}
+
+static void robwidget_toplevel_enable_scaling (RobWidget* rw) {
+	assert (rw->parent == rw);
+	assert (rw->mousedown == &rcontainer_mousedown);
+	robwidget_set_mousedown (rw, robtk_tl_mousedown);
+}
+
+
+/*****************************************************************************/
 /* helper functions */
+
 static uint64_t microtime(float offset) {
 	struct timespec now;
 	rtk_clock_gettime(&now);
@@ -968,6 +1102,15 @@ static void onDisplay(PuglView* view) {
 		}
 	}
 #endif
+
+#if 1
+	if (self->tl && self->queue_widget_scale != self->tl->widget_scale) {
+		self->tl->widget_scale = self->queue_widget_scale;
+		resize_self (self->tl);
+		robwidget_resize_toplevel (self->tl, self->tl->area.width, self->tl->area.height);
+	}
+#endif
+
 	if (self->resize_in_progress) { return; }
 	if (!self->cr) return; // XXX exit failure
 
@@ -1034,7 +1177,7 @@ static void onMotion(PuglView* view, int x, int y) {
 	}
 
 #if 1 // do not send enter/leave events when dragging
-	if (self->mousefocus) return;
+	if (self->mousefocus || self->tl->block_events) return;
 #endif
 
 	RobWidget *fc = decend_into_widget_tree(self->tl, x, y);
@@ -1117,7 +1260,7 @@ static void pugl_init(GlMetersLV2UI* self) {
 	// Set up GL UI
 	self->view = puglCreate(
 			self->extui ? (PuglNativeWindow) NULL : self->parent,
-			self->extui ? self->extui->plugin_human_id : "meters.lv2",
+			self->extui ? self->extui->plugin_human_id : "robtk",
 			self->width, self->height,
 			dflw, dflh,
 #ifdef LVGL_RESIZEABLE
@@ -1285,7 +1428,7 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 #endif
 	GlMetersLV2UI* self = (GlMetersLV2UI*)calloc(1, sizeof(GlMetersLV2UI));
 	if (!self) {
-		fprintf (stderr, "meters.lv2: out of memory.\n");
+		fprintf (stderr, "robtk: out of memory.\n");
 		return NULL;
 	}
 
@@ -1300,6 +1443,7 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 	self->ontop      = true;
 #endif
 	self->transient_id = 0;
+	self->queue_widget_scale = 1.0;
 	self->queue_canvas_realloc = false;
 
 #if (defined USE_GUI_THREAD && defined THREADSYNC)
@@ -1495,7 +1639,7 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 #ifdef XTERNAL_UI
 	if (self->extui) {
 #ifdef DEBUG_UI
-		printf("meters.lv2: Xternal UI\n");
+		printf("robtk: Xternal UI\n");
 #endif
 		self->xternal_ui.run  = &x_run;
 		self->xternal_ui.show = &x_show;
@@ -1506,7 +1650,7 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 #endif
 	{
 #ifdef DEBUG_UI
-		printf("meters.lv2: Interal UI\n");
+		printf("robtk: Interal UI\n");
 #endif
 		*widget = (void*)puglGetNativeWindow(self->view);
 	}
