@@ -138,10 +138,6 @@ static void robtk_spin_set_alignment(RobTkSpin *d, float x, float y) {
 }
 
 static void robtk_spin_label_width(RobTkSpin *d, float left, float right) {
-#if 0
-	robtk_lbl_set_min_geometry(d->lbl_l, (float) left, 0);
-	robtk_lbl_set_min_geometry(d->lbl_r, (float) right, 0);
-#else
 	if (left < 0) {
 		robwidget_hide(robtk_lbl_widget(d->lbl_l), false);
 	} else {
@@ -154,7 +150,6 @@ static void robtk_spin_label_width(RobTkSpin *d, float left, float right) {
 		robtk_lbl_set_min_geometry(d->lbl_r, (float) right, 0);
 		robwidget_show(robtk_lbl_widget(d->lbl_r), false);
 	}
-#endif
 	robtk_spin_render(d);
 }
 

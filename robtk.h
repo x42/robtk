@@ -182,6 +182,7 @@ typedef struct _robwidget {
 	struct _robwidget* parent;
 	struct _robwidget **children;
 	unsigned int childcount;
+	float widget_scale;
 
 	bool redraw_pending; // queue_draw_*() failed (during init or top-levelresize)
 	bool resized; // full-redraw --containers after resize

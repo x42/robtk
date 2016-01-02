@@ -193,6 +193,7 @@ static RobWidget * robwidget_new(void *handle) {
 	rw->self = handle;
 	rw->m0 = gtk_drawing_area_new();
 	rw->c = gtk_alignment_new(0, .5, 0, 0);
+	rw->widget_scale = 1.0;
 	gtk_container_add(GTK_CONTAINER(rw->c), rw->m0);
 	gtk_widget_set_redraw_on_allocate(rw->m0, TRUE);
 	return rw;

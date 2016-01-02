@@ -80,11 +80,9 @@ static bool robtk_mbtn_expose_event(RobWidget* handle, cairo_t* cr, cairo_rectan
 	RobTkMBtn * d = (RobTkMBtn *)GET_HANDLE(handle);
 	cairo_rectangle (cr, ev->x, ev->y, ev->width, ev->height);
 	cairo_clip (cr);
-	float led_r, led_g, led_b; // TODO consolidate with c[]
+	cairo_scale (cr, d->rw->widget_scale, d->rw->widget_scale);
 
-	if (handle->area.width > d->w_width) {
-		d->w_width = handle->area.width;
-	}
+	float led_r, led_g, led_b; // TODO consolidate with c[]
 
 	cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
 
@@ -198,8 +196,8 @@ static void robtk_mbtn_leave_notify(RobWidget *handle) {
 static void
 priv_mbtn_size_request(RobWidget* handle, int *w, int *h) {
 	RobTkMBtn* d = (RobTkMBtn*)GET_HANDLE(handle);
-	*w = d->w_width;
-	*h = d->w_height;
+	*w = d->w_width * d->rw->widget_scale;
+	*h = d->w_height * d->rw->widget_scale;
 }
 
 
