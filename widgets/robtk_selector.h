@@ -1,6 +1,6 @@
 /* combobox-like widget - select one of N texts
  *
- * Copyright (C) 2013 Robin Gareus <robin@gareus.org>
+ * Copyright (C) 2013-2016 Robin Gareus <robin@gareus.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
