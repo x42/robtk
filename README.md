@@ -46,5 +46,5 @@ lean onto the GTK API providing
 *   widget-exposure: complete and partial redraw
 
 robtk includes LV2-GUI wrappers and gnu-make definitions for easy use
-in a LV2 project. Currently it is used by meters.lv2, sisco.lv2, tuna.lv2 and
-mixtri.lv2
+in a LV2 project. Currently it is used by meters.lv2, sisco.lv2, tuna.lv2,
+mixtri.lv2, fil4.lv2 and setBfree

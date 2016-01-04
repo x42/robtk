@@ -1,6 +1,6 @@
 /* meters.lv2 openGL frontend
  *
- * Copyright (C) 2013 Robin Gareus <robin@gareus.org>
+ * Copyright (C) 2013-2016 Robin Gareus <robin@gareus.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -285,11 +285,11 @@ typedef struct {
 	void (* expose_overlay)(RobWidget* toplevel, cairo_t* cr, cairo_rectangle_t *ev);
 	float queue_widget_scale;
 
-} GlMetersLV2UI;
+} GLrobtkLV2UI;
 
 static const char * robtk_info(void *h) {
 #ifdef WITH_SIGNATURE
-	GlMetersLV2UI * self = (GlMetersLV2UI*) h;
+	GLrobtkLV2UI * self = (GLrobtkLV2UI*) h;
 	return self->gpg_data;
 #else
 	return "v" VERSION;
@@ -297,14 +297,14 @@ static const char * robtk_info(void *h) {
 }
 
 static void robtk_close_self(void *h) {
-	GlMetersLV2UI * self = (GlMetersLV2UI*) h;
+	GLrobtkLV2UI * self = (GLrobtkLV2UI*) h;
 	if (self->ui_closed) {
 		self->ui_closed(self);
 	}
 }
 
 static int robtk_open_file_dialog(void *h, const char *title) {
-	GlMetersLV2UI * self = (GlMetersLV2UI*) h;
+	GLrobtkLV2UI * self = (GLrobtkLV2UI*) h;
 	return puglOpenFileDialog(self->view, title);
 }
 
@@ -335,7 +335,7 @@ port_event(LV2UI_Handle handle,
 
 #include "gl/xternalui.c"
 
-static void reallocate_canvas(GlMetersLV2UI* self);
+static void reallocate_canvas(GLrobtkLV2UI* self);
 
 /*****************************************************************************/
 /* RobWidget implementation & glue */
@@ -346,7 +346,7 @@ typedef struct {
 } RWArea;
 
 #ifdef WITH_SIGNATURE
-static void lc_expose (GlMetersLV2UI * self) {
+static void lc_expose (GLrobtkLV2UI * self) {
 	cairo_rectangle_t expose_area;
 	posrb_read_clear(self->rb); // no fast-track
 
@@ -377,7 +377,7 @@ static void lc_expose (GlMetersLV2UI * self) {
 }
 #endif
 
-static void cairo_expose(GlMetersLV2UI * self) {
+static void cairo_expose(GLrobtkLV2UI * self) {
 
 	if (self->expose_overlay) {
 		cairo_rectangle_t expose_area;
@@ -532,8 +532,8 @@ static void cairo_expose(GlMetersLV2UI * self) {
 }
 
 static void queue_draw_full(RobWidget *rw) {
-	GlMetersLV2UI * const self =
-		(GlMetersLV2UI*) robwidget_get_toplevel_handle(rw);
+	GLrobtkLV2UI * const self =
+		(GLrobtkLV2UI*) robwidget_get_toplevel_handle(rw);
 	if (!self || !self->view) {
 		rw->redraw_pending = true;
 		return;
@@ -550,8 +550,8 @@ static void queue_draw_full(RobWidget *rw) {
 }
 
 static void queue_draw_area(RobWidget *rw, int x, int y, int width, int height) {
-	GlMetersLV2UI * self =
-		(GlMetersLV2UI*) robwidget_get_toplevel_handle(rw);
+	GLrobtkLV2UI * self =
+		(GLrobtkLV2UI*) robwidget_get_toplevel_handle(rw);
 	if (!self || !self->view) {
 		rw->redraw_pending = true;
 		return;
@@ -607,8 +607,8 @@ static void queue_tiny_rect(RobWidget *rw, cairo_rectangle_t *a) {
 		queue_draw(rw);
 		return;
 	}
-	GlMetersLV2UI * self =
-		(GlMetersLV2UI*) robwidget_get_toplevel_handle(rw);// XXX cache ?!
+	GLrobtkLV2UI * self =
+		(GLrobtkLV2UI*) robwidget_get_toplevel_handle(rw);// XXX cache ?!
 	if (!self || !self->view) {
 		rw->redraw_pending = true;
 		return;
@@ -631,7 +631,7 @@ static void queue_tiny_area(RobWidget *rw, float x, float y, float w, float h) {
 	queue_tiny_rect(rw, &a);
 }
 
-static void robwidget_layout(GlMetersLV2UI * const self, bool setsize, bool init) {
+static void robwidget_layout(GLrobtkLV2UI * const self, bool setsize, bool init) {
 	RobWidget * rw = self->tl;
 #ifdef DEBUG_RESIZE
 	printf("robwidget_layout(%s) setsize:%s init:%s\n", ROBWIDGET_NAME(self->tl),
@@ -698,8 +698,8 @@ static void robwidget_layout(GlMetersLV2UI * const self, bool setsize, bool init
 // called by a widget if size changes
 static void resize_self(RobWidget *rw) {
 
-	GlMetersLV2UI * const self =
-		(GlMetersLV2UI*) robwidget_get_toplevel_handle(rw);
+	GLrobtkLV2UI * const self =
+		(GLrobtkLV2UI*) robwidget_get_toplevel_handle(rw);
 	if (!self || !self->view) { return; }
 
 #ifdef DEBUG_RESIZE
@@ -709,8 +709,8 @@ static void resize_self(RobWidget *rw) {
 }
 
 static void resize_toplevel(RobWidget *rw, int w, int h) {
-	GlMetersLV2UI * const self =
-		(GlMetersLV2UI*) robwidget_get_toplevel_handle(rw);
+	GLrobtkLV2UI * const self =
+		(GLrobtkLV2UI*) robwidget_get_toplevel_handle(rw);
 	if (!self || !self->view) { return; }
 	self->width = w;
 	self->height = h;
@@ -724,8 +724,8 @@ static void resize_toplevel(RobWidget *rw, int w, int h) {
 }
 
 static void relayout_toplevel(RobWidget *rw) {
-	GlMetersLV2UI * const self =
-		(GlMetersLV2UI*) robwidget_get_toplevel_handle(rw);
+	GLrobtkLV2UI * const self =
+		(GLrobtkLV2UI*) robwidget_get_toplevel_handle(rw);
 	if (!self || !self->view) { return; }
 #ifdef TIMED_RESHAPE
 	if (!self->resize_in_progress) {
@@ -744,14 +744,14 @@ static void relayout_toplevel(RobWidget *rw) {
 /* UI scaling  */
 
 static void robtk_queue_scale_change (RobWidget *rw, const float ws) {
-	GlMetersLV2UI * const self =
-		(GlMetersLV2UI*) robwidget_get_toplevel_handle(rw);
+	GLrobtkLV2UI * const self =
+		(GLrobtkLV2UI*) robwidget_get_toplevel_handle(rw);
 	self->queue_widget_scale = ws;
 	queue_draw (rw);
 }
 
 static void set_toplevel_expose_overlay(RobWidget *rw, void (*expose_event)(struct _robwidget*, cairo_t*, cairo_rectangle_t *)){
-	GlMetersLV2UI * const self = (GlMetersLV2UI*) robwidget_get_toplevel_handle(rw);
+	GLrobtkLV2UI * const self = (GLrobtkLV2UI*) robwidget_get_toplevel_handle(rw);
 	self->expose_overlay = expose_event;
 	rw->resized = TRUE; //full re-expose
 	queue_draw (rw);
@@ -875,7 +875,7 @@ static void myusleep(uint32_t usec) {
 
 /*****************************************************************************/
 
-static void reallocate_canvas(GlMetersLV2UI* self) {
+static void reallocate_canvas(GLrobtkLV2UI* self) {
 #ifdef DEBUG_RESIZE
 	printf("reallocate_canvas()\n");
 #endif
@@ -907,7 +907,7 @@ static void reallocate_canvas(GlMetersLV2UI* self) {
 static void
 onRealReshape(PuglView* view, int width, int height)
 {
-	GlMetersLV2UI* self = (GlMetersLV2UI*)puglGetHandle(view);
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)puglGetHandle(view);
 	self->resize_in_progress = FALSE;
 	self->resize_toplevel = FALSE;
 #ifdef DEBUG_RESIZE
@@ -985,7 +985,7 @@ onRealReshape(PuglView* view, int width, int height)
 /* puGL callbacks */
 
 static void onGlInit (PuglView *view) {
-	GlMetersLV2UI* self = (GlMetersLV2UI*)puglGetHandle(view);
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)puglGetHandle(view);
 #ifdef DEBUG_UI
 	printf("OpenGL version: %s\n", glGetString (GL_VERSION));
 	printf("OpenGL vendor: %s\n", glGetString (GL_VENDOR));
@@ -996,13 +996,13 @@ static void onGlInit (PuglView *view) {
 }
 
 static void onClose(PuglView* view) {
-	GlMetersLV2UI* self = (GlMetersLV2UI*)puglGetHandle(view);
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)puglGetHandle(view);
 	self->close_ui = TRUE;
 }
 
 // callback from puGL -outsize GLX context(!) when we requested a resize
 static void onResize(PuglView* view, int *width, int *height, int *set_hints) {
-	GlMetersLV2UI* self = (GlMetersLV2UI*)puglGetHandle(view);
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)puglGetHandle(view);
 	assert(width && height);
 #ifdef DEBUG_RESIZE
 	printf("onResize()\n");
@@ -1046,7 +1046,7 @@ static void onResize(PuglView* view, int *width, int *height, int *set_hints) {
 }
 
 #ifdef TIMED_RESHAPE
-static void doReshape(GlMetersLV2UI *self) {
+static void doReshape(GLrobtkLV2UI *self) {
 	self->queue_reshape = 0;
 	onRealReshape(self->view, self->queue_w, self->queue_h);
 }
@@ -1054,7 +1054,7 @@ static void doReshape(GlMetersLV2UI *self) {
 
 static void onFileSelected(PuglView* view, const char *filename) {
 #ifdef RTK_FILE_DIRECT_CALLBACK
-	GlMetersLV2UI* self = (GlMetersLV2UI*)puglGetHandle(view);
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)puglGetHandle(view);
 	RTK_FILE_DIRECT_CALLBACK(self->ui, filename);
 #else
 	// TODO create port event (using urid:map)
@@ -1062,7 +1062,7 @@ static void onFileSelected(PuglView* view, const char *filename) {
 }
 
 static void onReshape(PuglView* view, int width, int height) {
-	GlMetersLV2UI* self = (GlMetersLV2UI*)puglGetHandle(view);
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)puglGetHandle(view);
 	if (!self->gl_initialized) {
 		onGlInit(view);
 		self->gl_initialized = true;
@@ -1088,7 +1088,7 @@ static void onReshape(PuglView* view, int width, int height) {
 }
 
 static void onDisplay(PuglView* view) {
-	GlMetersLV2UI* self = (GlMetersLV2UI*)puglGetHandle(view);
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)puglGetHandle(view);
 	if (!self->gl_initialized) {
 		onGlInit(view);
 		self->gl_initialized = true;
@@ -1162,7 +1162,7 @@ static void onDisplay(PuglView* view) {
 	event.button = -1;
 
 static void onMotion(PuglView* view, int x, int y) {
-	GlMetersLV2UI* self = (GlMetersLV2UI*)puglGetHandle(view);
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)puglGetHandle(view);
 	assert(self->tl->mousemove);
 
 	GL_MOUSEBOUNDS;
@@ -1195,7 +1195,7 @@ static void onMotion(PuglView* view, int x, int y) {
 }
 
 static void onMouse(PuglView* view, int button, bool press, int x, int y) {
-	GlMetersLV2UI* self = (GlMetersLV2UI*)puglGetHandle(view);
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)puglGetHandle(view);
 #ifdef WITH_SIGNATURE
 	if (!self->gpg_verified) {
 		if (press) { rtk_open_url ("http://x42-plugins.com"); }
@@ -1229,7 +1229,7 @@ static void onMouse(PuglView* view, int button, bool press, int x, int y) {
 }
 
 static void onScroll(PuglView* view, int x, int y, float dx, float dy) {
-	GlMetersLV2UI* self = (GlMetersLV2UI*)puglGetHandle(view);
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)puglGetHandle(view);
 #ifdef WITH_SIGNATURE
 	if (!self->gpg_verified) return;
 #endif
@@ -1249,7 +1249,7 @@ static void onScroll(PuglView* view, int x, int y, float dx, float dy) {
  * LV2 init/operation
  */
 
-static void pugl_init(GlMetersLV2UI* self) {
+static void pugl_init(GLrobtkLV2UI* self) {
 	int dflw = self->width;
 	int dflh = self->height;
 
@@ -1309,7 +1309,7 @@ static void pugl_init(GlMetersLV2UI* self) {
 #endif
 }
 
-static void pugl_cleanup(GlMetersLV2UI* self) {
+static void pugl_cleanup(GLrobtkLV2UI* self) {
 #ifndef USE_GUI_THREAD
 	ui_disable (self->ui);
 #endif
@@ -1326,7 +1326,7 @@ static void pugl_cleanup(GlMetersLV2UI* self) {
 
 /* main-thread to be called at regular intervals */
 static int process_gui_events(LV2UI_Handle handle) {
-	GlMetersLV2UI* self = (GlMetersLV2UI*)handle;
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)handle;
 	puglProcessEvents(self->view);
 	if (!self->gl_initialized) {
 		puglPostRedisplay(self->view);
@@ -1343,7 +1343,7 @@ static int process_gui_events(LV2UI_Handle handle) {
  // we can use idle to call 'ui_resize' in parent's thread context
 static int idle(LV2UI_Handle handle) {
 #ifdef HAVE_IDLE_IFACE
-	GlMetersLV2UI* self = (GlMetersLV2UI*)handle;
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)handle;
 
 	if (self->do_the_funky_resize && self->resize) {
 		self->resize->ui_resize(self->resize->handle, self->width, self->height);
@@ -1363,7 +1363,7 @@ static int idle(LV2UI_Handle handle) {
 }
 
 static void* ui_thread(void* handle) {
-	GlMetersLV2UI* self = (GlMetersLV2UI*)handle;
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)handle;
 #ifdef THREADSYNC
 	pthread_mutex_lock (&self->msg_thread_lock);
 #endif
@@ -1426,7 +1426,7 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 #ifdef DEBUG_UI
 	printf("gl_instantiate: %s\n", plugin_uri);
 #endif
-	GlMetersLV2UI* self = (GlMetersLV2UI*)calloc(1, sizeof(GlMetersLV2UI));
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)calloc(1, sizeof(GLrobtkLV2UI));
 	if (!self) {
 		fprintf (stderr, "robtk: out of memory.\n");
 		return NULL;
@@ -1659,7 +1659,7 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 }
 
 static void gl_cleanup(LV2UI_Handle handle) {
-	GlMetersLV2UI* self = (GlMetersLV2UI*)handle;
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)handle;
 #ifdef USE_GUI_THREAD
 	self->exit = true;
 	pthread_join(self->thread, NULL);
@@ -1686,7 +1686,7 @@ gl_port_event(LV2UI_Handle handle,
 	/* these arrive in GUI context of the parent thread
 	 * -- could do some trickery here, too
 	 */
-	GlMetersLV2UI* self = (GlMetersLV2UI*)handle;
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)handle;
 	port_event(self->ui, port_index, buffer_size, format, buffer);
 #if (defined USE_GUI_THREAD && defined THREADSYNC)
 	if (pthread_mutex_trylock (&self->msg_thread_lock) == 0) {

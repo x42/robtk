@@ -1,4 +1,4 @@
-/* meters.lv2
+/* robTK
  *
  * Copyright (C) 2013 Robin Gareus <robin@gareus.org>
  *
