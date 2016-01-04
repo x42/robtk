@@ -200,14 +200,16 @@ robtk_scale_size_request(RobWidget* handle, int *w, int *h) {
 	int rw, rh;
 	if (d->horiz) {
 		rh = GSC_GIRTH + (d->mark_cnt > 0 ? d->mark_space : 0);
+		rh *= d->rw->widget_scale;
 		rw = 250;
 	} else {
 		rw = GSC_GIRTH + (d->mark_cnt > 0 ? d->mark_space : 0);
+		rw *= d->rw->widget_scale;
 		rh = 250;
 	}
 
-	*w = d->w_width  = rw * d->rw->widget_scale;
-	*h = d->w_height = rh * d->rw->widget_scale;
+	*w = d->w_width  = rw;
+	*h = d->w_height = rh;
 }
 
 static void

@@ -239,9 +239,9 @@ static RobTkPBtn * robtk_pbtn_new_with_colors(const char * txt, const float bg[4
 	d->l_width = d->w_width;
 	d->l_height = d->w_height;
 
+	d->rw = robwidget_new(d);
 	create_pbtn_text_surface(d);
 
-	d->rw = robwidget_new(d);
 	ROBWIDGET_SETNAME(d->rw, "pbtn");
 	robwidget_set_alignment(d->rw, 0, .5);
 
