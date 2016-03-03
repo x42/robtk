@@ -114,7 +114,6 @@ static int testfile (const char *filename) {
 	if (S_ISREG(s.st_mode)) return 1; /* is a regular file - ok */
 	return 0;
 }
-#include WITH_SIGNATURE
 #endif
 
 static void opengl_init () {
@@ -313,6 +312,10 @@ static int robtk_open_file_dialog(void *h, const char *title) {
 #include PLUGIN_SOURCE
 
 /*****************************************************************************/
+
+#ifdef WITH_SIGNATURE
+#include WITH_SIGNATURE
+#endif
 
 #ifdef ROBTKAPP
 static const void*
@@ -1545,10 +1548,10 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 		if ((tmp = strchr(data, '\n'))) *tmp = 0;
 		self->gpg_data[sizeof(self->gpg_data) - 1] = 0;
 		if (tmp++ && *tmp) {
-			if ((tmp = strstr(tmp, MTR_URI))) {
+			if ((tmp = strstr(tmp, RTK_URI))) {
 				char *t1, *t2;
 				self->gpg_verified = TRUE;
-				t1 = tmp + strlen(MTR_URI);
+				t1 = tmp + strlen(RTK_URI);
 				t2 = strchr(t1, '\n');
 				if (t2) { *t2 = 0; }
 				if (strlen(t1) > 0 && strncmp(t1, VERSION, strlen(t1))) {
@@ -1721,7 +1724,7 @@ gl_extension_data(const char* uri)
 }
 
 static const LV2UI_Descriptor gl_descriptor = {
-	MTR_URI MTR_GUI "_gl",
+	RTK_URI RTK_GUI "_gl",
 	gl_instantiate,
 	gl_cleanup,
 	gl_port_event,

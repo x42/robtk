@@ -144,7 +144,7 @@ gtk_extension_data(const char* uri)
 }
 
 static const LV2UI_Descriptor gtk_descriptor = {
-	MTR_URI MTR_GUI "_gtk",
+	RTK_URI RTK_GUI "_gtk",
 	gtk_instantiate,
 	gtk_cleanup,
 	gtk_port_event,
