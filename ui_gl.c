@@ -373,7 +373,7 @@ static void lc_expose (GLrobtkLV2UI * self) {
 	cairo_fill(self->cr);
 	write_text_full(self->cr, "Unregistered Version\nhttp://x42-plugins.com",
 			xfont, self->width * .5, self->height * .5,
-			self->width < 200 ? M_PI * -.5 : 0, 2, c_wht);
+			self->width < 200 ? M_PI * -.5 : 0, -2, c_wht);
 	pango_font_description_free(xfont);
 
 	cairo_surface_mark_dirty(self->surface);
@@ -1201,7 +1201,13 @@ static void onMouse(PuglView* view, int button, bool press, int x, int y) {
 	GLrobtkLV2UI* self = (GLrobtkLV2UI*)puglGetHandle(view);
 #ifdef WITH_SIGNATURE
 	if (!self->gpg_verified) {
-		if (press) { rtk_open_url ("http://x42-plugins.com"); }
+		if (press) {
+			if (self->gpg_shade < .3) self->gpg_shade = .3;
+			else if (self->gpg_shade < .5) self->gpg_shade += .05;
+			puglPostRedisplay(self->view);
+		} else {
+			rtk_open_url ("http://x42-plugins.com");
+		}
 		return;
 	}
 #endif
