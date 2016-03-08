@@ -100,21 +100,7 @@
 #include "gl/posringbuf.h"
 #include "robtk.h"
 
-#ifdef WITH_SIGNATURE // gpg sign tested releases
-#include "gp3.h"
-#include <sys/types.h>
-#include <sys/stat.h>
-
-/* test if file exists and is a regular file - returns 1 if ok */
-static int testfile (const char *filename) {
-	struct stat s;
-	if (!filename || strlen(filename) < 1) return 0;
-	int result= stat(filename, &s);
-	if (result != 0) return 0; /* stat() failed */
-	if (S_ISREG(s.st_mode)) return 1; /* is a regular file - ok */
-	return 0;
-}
-#endif
+#include "gpg_init.c"
 
 static void opengl_init () {
 	glClearColor (0.0f, 0.0f, 0.0f, 0.0f);
@@ -1491,89 +1477,10 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 	self->rb = posrb_alloc(sizeof(RWArea) * 48); // depends on plugin and threading stategy
 
 #ifdef WITH_SIGNATURE
-	self->gpg_verified = FALSE;
 	self->gpg_shade = 0;
-	gp3_initialize ();
-	load_master_key (); // in header WITH_SIGNATURE
-	gp3_loglevel (GP3L_SILENT);
-	int rc = -1;
-	char signature_file0[1024] = "";
-	char signature_file1[1024] = "";
-	char signature_file2[1024] = "";
-	char signature_file3[1024] = "";
-	strcpy(self->gpg_data, "v" VERSION);
-#ifdef _WIN32
-	ExpandEnvironmentStrings("%localappdata%\\"SIGFILE, signature_file0, 1024);
-	ExpandEnvironmentStrings("%localappdata%\\x42_license.txt", signature_file2, 1024);
+#endif
 
-	const char * homedrive = getenv("HOMEDRIVE");
-	const char * homepath = getenv("HOMEPATH");
-
-	if (homedrive && homepath && (strlen(homedrive) + strlen(homepath) + strlen(SIGFILE) + 3) < 1024) {
-		sprintf(signature_file1, "%s%s\\%s", homedrive, homepath, SIGFILE);
-	}
-	if (homedrive && homepath && (strlen(homedrive) + strlen(homepath) + strlen(SIGFILE) + 17) < 1024) {
-		sprintf(signature_file3, "%s%s\\x42_license.txt", homedrive, homepath);
-	}
-#else
-	const char * home = getenv("HOME");
-	if (home && (strlen(home) + strlen(SIGFILE) + 3) < 1024) {
-		sprintf(signature_file0, "%s/%s", home, SIGFILE);
-	}
-	if (home && (strlen(home) + strlen(SIGFILE) + 3) < 1024) {
-		sprintf(signature_file1, "%s/.%s", home, SIGFILE);
-	}
-	if (home && (strlen(home) + 18) < 1024) {
-		sprintf(signature_file2, "%s/x42_license.txt", home);
-	}
-	if (home && (strlen(home) + 18) < 1024) {
-		sprintf(signature_file3, "%s/.x42_license.txt", home);
-	}
-#endif
-	if (testfile(signature_file0)) {
-		rc = gp3_checksigfile (signature_file0);
-	} else if (testfile(signature_file1)) {
-		rc = gp3_checksigfile (signature_file1);
-	} else if (testfile(signature_file2)) {
-		rc = gp3_checksigfile (signature_file2);
-	} else if (testfile(signature_file3)) {
-		rc = gp3_checksigfile (signature_file3);
-	} else {
-		fprintf(stderr, " *** no signature file found\n");
-	}
-	if (rc == 0) {
-		char data[8192];
-		char *tmp=NULL;
-		uint32_t len = gp3_get_text(data, sizeof(data));
-		if (len == sizeof(data)) data[sizeof(data)-1] = '\0';
-		else data[len] = '\0';
-#if 0
-		fprintf(stderr, " *** signature:\n");
-		if (len > 0) fputs(data, stderr);
-#endif
-		if ((tmp = strchr(data, '\n'))) *tmp = 0;
-		self->gpg_data[sizeof(self->gpg_data) - 1] = 0;
-		if (tmp++ && *tmp) {
-			if ((tmp = strstr(tmp, RTK_URI))) {
-				char *t1, *t2;
-				self->gpg_verified = TRUE;
-				t1 = tmp + strlen(RTK_URI);
-				t2 = strchr(t1, '\n');
-				if (t2) { *t2 = 0; }
-				if (strlen(t1) > 0 && strncmp(t1, VERSION, strlen(t1))) {
-					self->gpg_verified = FALSE;
-				}
-			}
-		}
-		if (!self->gpg_verified) {
-			fprintf(stderr, " *** signature is not valid for this version/bundle.\n");
-		} else {
-			strncat(self->gpg_data, " ", sizeof(self->gpg_data) - strlen(self->gpg_data));
-			strncat(self->gpg_data, data, sizeof(self->gpg_data) - strlen(self->gpg_data));
-		}
-	}
-	gp3_cleanup ();
-#endif
+# include "gpg_check.c"
 
 	self->tl = NULL;
 	self->ui = instantiate(self,
