@@ -47,7 +47,11 @@ typedef struct {
 static bool robtk_spin_render(RobTkSpin *d){
 	pthread_mutex_lock (&d->_mutex);
 	char buf[32];
+#ifdef _WIN32
+	sprintf(buf, d->prec_fmt, robtk_dial_get_value(d->dial));
+#else
 	snprintf(buf, 32, d->prec_fmt, robtk_dial_get_value(d->dial));
+#endif
 	buf[31] = '\0';
 	if (d->lbl & 1) robtk_lbl_set_text(d->lbl_l, buf);
 	if (d->lbl & 2) robtk_lbl_set_text(d->lbl_r, buf);

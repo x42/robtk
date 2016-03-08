@@ -1043,7 +1043,11 @@ static int start_osc_server (int osc_port) {
 	char tmp[8];
 	uint32_t port = (osc_port > 100 && osc_port < 60000) ? osc_port : 9988;
 
+#ifdef _WIN32
+	sprintf(tmp, "%d", port);
+#else
 	snprintf(tmp, sizeof(tmp), "%d", port);
+#endif
 	osc_server = lo_server_thread_new (tmp, oscb_error);
 
 	if (!osc_server) {
