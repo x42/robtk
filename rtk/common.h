@@ -73,15 +73,15 @@ static void write_text_full(
 	if (ang != 0) { cairo_rotate (cr, ang); }
 	switch(abs(align)) {
 		case 1:
-			cairo_translate (cr, -tw, floor(th/-2.0));
+			cairo_translate (cr, -tw, ceil(th/-2.0));
 			pango_layout_set_alignment (pl, PANGO_ALIGN_RIGHT);
 			break;
 		case 2:
-			cairo_translate (cr, floor(tw/-2.0), floor(th/-2.0));
+			cairo_translate (cr, ceil(tw/-2.0), ceil(th/-2.0));
 			pango_layout_set_alignment (pl, PANGO_ALIGN_CENTER);
 			break;
 		case 3:
-			cairo_translate (cr, 0, floor(th/-2.0));
+			cairo_translate (cr, 0, ceil(th/-2.0));
 			pango_layout_set_alignment (pl, PANGO_ALIGN_LEFT);
 			break;
 		case 4:
@@ -89,7 +89,7 @@ static void write_text_full(
 			pango_layout_set_alignment (pl, PANGO_ALIGN_RIGHT);
 			break;
 		case 5:
-			cairo_translate (cr, floor(tw/-2.0), -th);
+			cairo_translate (cr, ceil(tw/-2.0), -th);
 			pango_layout_set_alignment (pl, PANGO_ALIGN_CENTER);
 			break;
 		case 6:
@@ -101,7 +101,7 @@ static void write_text_full(
 			pango_layout_set_alignment (pl, PANGO_ALIGN_RIGHT);
 			break;
 		case 8:
-			cairo_translate (cr, floor(tw/-2.0), 0);
+			cairo_translate (cr, ceil(tw/-2.0), 0);
 			pango_layout_set_alignment (pl, PANGO_ALIGN_CENTER);
 			break;
 		case 9:
