@@ -336,6 +336,8 @@ typedef struct {
 
 #ifdef WITH_SIGNATURE
 static void lc_expose (GLrobtkLV2UI * self) {
+	assert (self->tl);
+	if (!self->tl) { return; }
 	cairo_rectangle_t expose_area;
 	posrb_read_clear(self->rb); // no fast-track
 

@@ -701,8 +701,10 @@ static int init_jack(const char *client_name) {
 
 static int jack_portsetup(void) {
 	/* Allocate data structures that depend on the number of ports. */
-	input_port = (jack_port_t **) malloc (sizeof (jack_port_t *) * inst->nports_audio_in);
-	delayline = (struct DelayBuffer **) calloc (inst->nports_audio_in, sizeof (struct DelayBuffer *));
+	if (inst->nports_audio_in > 0) {
+		input_port = (jack_port_t **) malloc (sizeof (jack_port_t *) * inst->nports_audio_in);
+		delayline = (struct DelayBuffer **) calloc (inst->nports_audio_in, sizeof (struct DelayBuffer *));
+	}
 
 	for (uint32_t i = 0; i < inst->nports_audio_in; i++) {
 		if ((input_port[i] = jack_port_register (j_client,
@@ -714,7 +716,9 @@ static int jack_portsetup(void) {
 		delayline[i] = (struct DelayBuffer *) calloc (1, sizeof (struct DelayBuffer));
 	}
 
-	output_port = (jack_port_t **) malloc (sizeof (jack_port_t *) * inst->nports_audio_out);
+	if (inst->nports_audio_out > 0) {
+		output_port = (jack_port_t **) malloc (sizeof (jack_port_t *) * inst->nports_audio_out);
+	}
 
 	for (uint32_t i = 0; i < inst->nports_audio_out; i++) {
 		if ((output_port[i] = jack_port_register (j_client,
