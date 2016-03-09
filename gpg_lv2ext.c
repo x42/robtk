@@ -24,7 +24,11 @@ static char*
 licensee (LV2_Handle instance)
 {
 	if (gpginfo.gpg_verified) {
-		return strdup (gpginfo.gpg_data);
+		if (strlen (gpginfo.gpg_data) > 13 && !strncmp(gpginfo.gpg_data, "Licensed to ", 12)) {
+			return strdup (&gpginfo.gpg_data[12]);
+		} else {
+			return strdup (gpginfo.gpg_data);
+		}
 	}
 	return NULL;
 }
