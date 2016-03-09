@@ -1,4 +1,7 @@
 #ifdef WITH_SIGNATURE // gpg sign tested releases
+#ifdef _WIN32
+# include <windows.h>
+#endif
 #include "gp3.h"
 #include <sys/types.h>
 #include <sys/stat.h>
