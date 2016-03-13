@@ -1,4 +1,5 @@
 #ifdef WITH_SIGNATURE // gpg sign tested releases
+#include "lv2_rgext.h"
 #ifdef _WIN32
 # include <windows.h>
 #endif
@@ -20,12 +21,4 @@ struct license_info {
 	char name[64];
 	char store[128];
 };
-
-typedef struct _LV2_License_Interface {
-	int   (*is_licensed)(LV2_Handle instance);
-	char* (*licensee)(LV2_Handle instance);
-	const char* (*product_uri)(LV2_Handle instance);
-	const char* (*product_name)(LV2_Handle instance);
-	const char* (*store_url)(LV2_Handle instance);
-} LV2_License_Interface;
 #endif

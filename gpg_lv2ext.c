@@ -53,4 +53,4 @@ store_url (LV2_Handle instance)
 
 #define LV2_LICENSE_EXT_C \
 	static const LV2_License_Interface lif = { &is_licensed, &licensee, &product_uri, &product_name, &store_url }; \
-	if (!strcmp(uri, "http://harrisonconsoles.com/lv2/license#interface")) { return &lif; }
+	if (!strcmp(uri, LV2_PLUGINLICENSE__interface)) { return &lif; }

@@ -17,6 +17,8 @@
 #ifndef LV2_RG_EXT_H // -> needs to eventually go upstream to lv2plug.in
 #define LV2_RG_EXT_H
 
+#include "lv2/lv2plug.in/ns/lv2core/lv2.h"
+
 /**
    @defgroup inlinedisplay Inline-Display
 
@@ -88,6 +90,36 @@ typedef struct {
 #define LV2_AUTOMATE_URI__end LV2_AUTOMATE_URI_PREFIX "end"
 #define LV2_AUTOMATE_URI__parameter LV2_AUTOMATE_URI_PREFIX "parameter"
 #define LV2_AUTOMATE_URI__value LV2_AUTOMATE_URI_PREFIX "value"
+
+/**
+   @}
+*/
+
+/**
+   @defgroup license License-Report
+
+   Allow for commercial LV2 to report their
+	 licensing status.
+
+   @{
+*/
+
+#define LV2_PLUGINLICENSE_URI "http://harrisonconsoles.com/lv2/license"
+#define LV2_PLUGINLICENSE_PREFIX LV2_INLINEDISPLAY_URI "#"
+#define LV2_PLUGINLICENSE__interface LV2_INLINEDISPLAY_PREFIX "interface"
+
+typedef struct _LV2_License_Interface {
+	/* @return -1 if no license is needed; 0 if unlicensed, 1 if licensed */
+	int   (*is_licensed)(LV2_Handle instance);
+	/* @return a string copy of the licensee name if licensed, or NULL, the caller needs to free this */
+	char* (*licensee)(LV2_Handle instance);
+	/* @return a URI identifying the plugin-bundle or plugin for which a given license is valid */
+	const char* (*product_uri)(LV2_Handle instance);
+	/* @return human readable product name for the URI */
+	const char* (*product_name)(LV2_Handle instance);
+	/* @return link to website or webstore */
+	const char* (*store_url)(LV2_Handle instance);
+} LV2_License_Interface;
 
 /**
    @}
