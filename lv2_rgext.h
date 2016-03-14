@@ -47,10 +47,12 @@ typedef struct {
 	int stride;
 } LV2_Inline_Display_Image_Surface;
 
+/** a LV2 Feature provided by the Host to the plugin */
 typedef struct {
 	/** Opaque host data */
 	LV2_Inline_Display_Handle handle;
-	/** Request from run() that the host should call render() */
+	/** Request from run() that the host should call render() at a later time
+	 * to update the inline display */
 	void (*queue_draw)(LV2_Inline_Display_Handle handle);
 } LV2_Inline_Display;
 
@@ -61,9 +63,12 @@ typedef struct {
 	/**
 	 * The render method. This is called by the host in a non-realtime context,
 	 * usually the main GUI thread.
+	 * The data pointer is owned by the plugin and must be valid
+	 * from the first call to render until cleanup.
 	 *
 	 * @param instance The LV2 instance
 	 * @param w the max available width
+	 * @param h the max available height
 	 * @return pointer to a LV2_Inline_Display_Image_Surface or NULL
 	 */
 	LV2_Inline_Display_Image_Surface* (*render)(LV2_Handle instance, uint32_t w, uint32_t h);
