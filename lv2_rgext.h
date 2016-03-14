@@ -36,8 +36,16 @@
 /** Opaque handle for LV2_Inline_Display::queue_draw() */
 typedef void* LV2_Inline_Display_Handle;
 
-/** Alias for cairo_image_surface_t */
-typedef void* LV2_Inline_Display_Image_Surface;
+/** raw image pixmap format is ARGB32,
+ * the data pointer is owned by the plugin and must be valid
+ * from the first call to render until cleanup.
+ */
+typedef struct {
+	unsigned char *data;
+	int width;
+	int height;
+	int stride;
+} LV2_Inline_Display_Image_Surface;
 
 typedef struct {
 	/** Opaque host data */
@@ -56,9 +64,9 @@ typedef struct {
 	 *
 	 * @param instance The LV2 instance
 	 * @param w the max available width
-	 * @return pointer to a cairo image surface or NULL
+	 * @return pointer to a LV2_Inline_Display_Image_Surface or NULL
 	 */
-	LV2_Inline_Display_Image_Surface (*render)(LV2_Handle instance, uint32_t w, uint32_t h);
+	LV2_Inline_Display_Image_Surface* (*render)(LV2_Handle instance, uint32_t w, uint32_t h);
 } LV2_Inline_Display_Interface;
 
 /**
