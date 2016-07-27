@@ -110,6 +110,10 @@ extern void rtk_osx_api_err(const char *msg);
 
 #define nan NAN
 
+#ifndef UINT32_MAX
+# define UINT32_MAX		(4294967295U)
+#endif
+
 static const LV2_Descriptor* plugin_dsp;
 static const LV2UI_Descriptor *plugin_gui;
 
