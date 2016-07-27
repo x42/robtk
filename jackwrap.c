@@ -238,6 +238,7 @@ typedef struct _RtkLv2Description {
 	const uint32_t nports_ctrl_out;
 	const uint32_t min_atom_bufsiz;
 	const bool     send_time_info;
+	const uint32_t latency_ctrl_port; // XXX Latency --  TODO update all plugins .h
 } RtkLv2Description;
 
 static RtkLv2Description const *inst;
@@ -257,7 +258,7 @@ static LV2_Atom_Forge lv2_forge;
 static uint32_t *portmap_a_in;
 static uint32_t *portmap_a_out;
 static uint32_t *portmap_rctl;
-static int      *portmap_ctrl;
+static uint32_t *portmap_ctrl;
 static uint32_t  portmap_atom_to_ui = -1;
 static uint32_t  portmap_atom_from_ui = -1;
 
@@ -276,6 +277,9 @@ static pthread_mutex_t       port_write_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct DelayBuffer **delayline = NULL;
 static uint32_t worst_capture_latency = 0;
 static uint32_t plugin_latency = 0;
+#if 1 // XXX Latency
+static uint32_t latency_ctrl_port = UINT32_MAX;
+#endif
 
 /******************************************************************************
  * Delayline for latency compensation
@@ -550,12 +554,11 @@ static int process (jack_nframes_t nframes, void *arg) {
 			if (inst->ports[portmap_rctl[p]].porttype != CONTROL_OUT) continue;
 
 			if (plugin_ports_pre[p] != plugin_ports_post[p]) {
-#if 0 // TODO regardless of UI.. use a dedicated port-ID
-				if (TODO this port reportsLatency) {
+				if (p == portmap_ctrl[/*inst->*/latency_ctrl_port]) { // XXX Latency
 					plugin_latency = rintf(plugin_ports_pre[p]);
-					jack_recompute_total_latencies(j_client);
+					// TODO handle case if there's no GUI thread to call
+					// jack_recompute_total_latencies()
 				}
-#endif
 				if (jack_ringbuffer_write_space(rb_ctrl_to_ui) >= sizeof(uint32_t) + sizeof(float)) {
 					jack_ringbuffer_write(rb_ctrl_to_ui, (char *) &portmap_rctl[p], sizeof(uint32_t));
 					jack_ringbuffer_write(rb_ctrl_to_ui, (char *) &plugin_ports_pre[p], sizeof(float));
@@ -838,7 +841,7 @@ static void write_function(
 		fprintf(stderr, "LV2Host: write_function() invalid port\n");
 		return;
 	}
-	if (portmap_ctrl[port_index] < 0) {
+	if (portmap_ctrl[port_index] == UINT32_MAX) {
 		fprintf(stderr, "LV2Host: write_function() unmapped port\n");
 		return;
 	}
@@ -1167,6 +1170,10 @@ static void run_one(LV2_Atom_Sequence *data) {
 		jack_ringbuffer_read(rb_ctrl_to_ui, (char*) &idx, sizeof(uint32_t));
 		jack_ringbuffer_read(rb_ctrl_to_ui, (char*) &val, sizeof(float));
 		plugin_gui->port_event(gui_instance, idx, sizeof(float), 0, &val);
+		if (idx == /*inst->*/latency_ctrl_port) { // XXX Latency
+			// jack client calls cannot be done in the DSP thread with jack1
+			jack_recompute_total_latencies(j_client);
+		}
 	}
 
 	while (jack_ringbuffer_read_space(rb_atom_to_ui) > sizeof(LV2_Atom)) {
@@ -1525,7 +1532,7 @@ int main (int argc, char **argv) {
 	portmap_a_in  = (uint32_t*) malloc(inst->nports_audio_in * sizeof(uint32_t));
 	portmap_a_out = (uint32_t*) malloc(inst->nports_audio_out * sizeof(uint32_t));
 	portmap_rctl  = (uint32_t*) malloc(inst->nports_ctrl  * sizeof(uint32_t));
-	portmap_ctrl  = (int*)      malloc(inst->nports_total * sizeof(int));
+	portmap_ctrl  = (uint32_t*) malloc(inst->nports_total * sizeof(uint32_t));
 
 	plugin_ports_pre  = (float*) calloc(inst->nports_ctrl, sizeof(float));
 	plugin_ports_post = (float*) calloc(inst->nports_ctrl, sizeof(float));
@@ -1582,7 +1589,7 @@ int main (int argc, char **argv) {
 
 	/* connect ports */
 	for (uint32_t p=0; p < inst->nports_total; ++p) {
-		portmap_ctrl[p] = -1;
+		portmap_ctrl[p] = UINT32_MAX;
 		switch (inst->ports[p].porttype) {
 			case CONTROL_IN:
 				plugin_ports_pre[c_ctrl] = inst->ports[p].val_default;
@@ -1590,6 +1597,11 @@ int main (int argc, char **argv) {
 				portmap_ctrl[p] = c_ctrl;
 				portmap_rctl[c_ctrl] = p;
 				plugin_dsp->connect_port(plugin_instance, p , &plugin_ports_pre[c_ctrl++]);
+#if 1 // XXX Latency
+				if (!strcmp(inst->ports[p].name, "latency")) {
+					latency_ctrl_port = p;
+				}
+#endif
 				break;
 			case AUDIO_IN:
 				portmap_a_in[c_ain++] = p;
