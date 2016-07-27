@@ -62,6 +62,7 @@ extern void rtk_osx_api_err(const char *msg);
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <math.h>
 #include <time.h>
 #include <getopt.h>
