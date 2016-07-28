@@ -243,7 +243,7 @@ typedef struct _RtkLv2Description {
 	const uint32_t nports_ctrl_out;
 	const uint32_t min_atom_bufsiz;
 	const bool     send_time_info;
-	const uint32_t latency_ctrl_port; // XXX Latency --  TODO update all plugins .h
+	const uint32_t latency_ctrl_port;
 } RtkLv2Description;
 
 static RtkLv2Description const *inst;
@@ -282,9 +282,6 @@ static pthread_mutex_t       port_write_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct DelayBuffer **delayline = NULL;
 static uint32_t worst_capture_latency = 0;
 static uint32_t plugin_latency = 0;
-#if 1 // XXX Latency
-static uint32_t latency_ctrl_port = UINT32_MAX;
-#endif
 
 /******************************************************************************
  * Delayline for latency compensation
@@ -559,7 +556,7 @@ static int process (jack_nframes_t nframes, void *arg) {
 			if (inst->ports[portmap_rctl[p]].porttype != CONTROL_OUT) continue;
 
 			if (plugin_ports_pre[p] != plugin_ports_post[p]) {
-				if (p == portmap_ctrl[/*inst->*/latency_ctrl_port]) { // XXX Latency
+				if (p == portmap_ctrl[inst->latency_ctrl_port]) {
 					plugin_latency = rintf(plugin_ports_pre[p]);
 					// TODO handle case if there's no GUI thread to call
 					// jack_recompute_total_latencies()
@@ -1175,7 +1172,7 @@ static void run_one(LV2_Atom_Sequence *data) {
 		jack_ringbuffer_read(rb_ctrl_to_ui, (char*) &idx, sizeof(uint32_t));
 		jack_ringbuffer_read(rb_ctrl_to_ui, (char*) &val, sizeof(float));
 		plugin_gui->port_event(gui_instance, idx, sizeof(float), 0, &val);
-		if (idx == /*inst->*/latency_ctrl_port) { // XXX Latency
+		if (idx == inst->latency_ctrl_port) {
 			// jack client calls cannot be done in the DSP thread with jack1
 			jack_recompute_total_latencies(j_client);
 		}
@@ -1602,11 +1599,6 @@ int main (int argc, char **argv) {
 				portmap_ctrl[p] = c_ctrl;
 				portmap_rctl[c_ctrl] = p;
 				plugin_dsp->connect_port(plugin_instance, p , &plugin_ports_pre[c_ctrl++]);
-#if 1 // XXX Latency
-				if (!strcmp(inst->ports[p].name, "latency")) {
-					latency_ctrl_port = p;
-				}
-#endif
 				break;
 			case AUDIO_IN:
 				portmap_a_in[c_ain++] = p;
