@@ -77,6 +77,7 @@ static RobWidget* decend_into_widget_tree(RobWidget *rw, int x, int y) {
 	for (unsigned int i=0; i < rw->childcount; ++i) {
 		RobWidget * c = (RobWidget *) rw->children[i];
 		if (c->hidden) continue;
+		if (c->block_events) continue;
 		if (x >= c->area.x && y >= c->area.y
 				&& x <= c->area.x + c->area.width
 				&& y <= c->area.y + c->area.height
