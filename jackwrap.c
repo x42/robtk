@@ -801,14 +801,14 @@ static void jack_portconnect(int which) {
 static uint32_t uri_to_id(LV2_URI_Map_Callback_Data callback_data, const char* uri) {
 	for (uint32_t i=0; i < urimap_len; ++i) {
 		if (!strcmp(urimap[i], uri)) {
-			//printf("Found mapped URI '%s' -> %d\n", uri, i);
-			return i;
+			//printf("Found mapped URI '%s' -> %d\n", uri, i + 1);
+			return i + 1;
 		}
 	}
-	//printf("map URI '%s' -> %d\n", uri, urimap_len);
+	//printf("map URI '%s' -> %d\n", uri, urimap_len + 1);
 	urimap = (char**) realloc(urimap, (urimap_len + 1) * sizeof(char*));
 	urimap[urimap_len] = strdup(uri);
-	return urimap_len++;
+	return ++urimap_len;
 }
 
 static void free_uri_map() {
