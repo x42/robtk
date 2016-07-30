@@ -556,7 +556,8 @@ static int process (jack_nframes_t nframes, void *arg) {
 			if (inst->ports[portmap_rctl[p]].porttype != CONTROL_OUT) continue;
 
 			if (plugin_ports_pre[p] != plugin_ports_post[p]) {
-				if (p == portmap_ctrl[inst->latency_ctrl_port]) {
+				if (inst->latency_ctrl_port != UINT32_MAX
+						&& p == portmap_ctrl[inst->latency_ctrl_port]) {
 					plugin_latency = rintf(plugin_ports_pre[p]);
 					// TODO handle case if there's no GUI thread to call
 					// jack_recompute_total_latencies()
