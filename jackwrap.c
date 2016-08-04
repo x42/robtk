@@ -1498,13 +1498,12 @@ int main (int argc, char **argv) {
 	gobject_init_ctor();
 #endif
 
+	LV2_URID_Map uri_map               = { NULL, &uri_to_id };
+	const LV2_Feature map_feature      = { LV2_URID__map, &uri_map};
+	const LV2_Feature unmap_feature    = { LV2_URID__unmap, NULL };
 
-	LV2_URID_Map uri_map            = { NULL, &uri_to_id };
-	const LV2_Feature map_feature   = { LV2_URID__map, &uri_map};
-	const LV2_Feature unmap_feature = { LV2_URID__unmap, NULL };
-
-	LV2_Worker_Schedule schedule = { NULL, lv2_worker_schedule };
-	LV2_Feature schedule_feature  = { LV2_WORKER__schedule, &schedule };
+	LV2_Worker_Schedule schedule       = { NULL, lv2_worker_schedule };
+	const LV2_Feature schedule_feature = { LV2_WORKER__schedule, &schedule };
 
 	const LV2_Feature* features[] = {
 		&map_feature, &unmap_feature, &schedule_feature, NULL
