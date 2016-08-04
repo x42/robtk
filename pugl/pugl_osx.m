@@ -581,4 +581,5 @@ puglUpdateGeometryConstraints(PuglView* view, int min_width, int min_height, boo
 		if (aspect) {
 			[view->impl->window setContentAspectRatio:NSMakeSize(min_width, min_height)];
 		}
+		return 0;
 }
