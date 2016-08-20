@@ -75,6 +75,7 @@ static void create_cbtn_pattern(RobTkCBtn * d) {
 
 	if (d->btn_inactive) cairo_pattern_destroy(d->btn_inactive);
 	if (d->btn_enabled) cairo_pattern_destroy(d->btn_enabled);
+	if (d->btn_led) cairo_pattern_destroy(d->btn_led);
 
 	d->btn_inactive = cairo_pattern_create_linear (0.0, 0.0, 0.0, d->w_height);
 	cairo_pattern_add_color_stop_rgb (d->btn_inactive, ISBRIGHT(c_bg) ? 0.5 : 0.0, SHADE_RGB(c_bg, 1.95));
@@ -316,9 +317,13 @@ priv_cbtn_size_allocate(RobWidget* handle, int w, int h) {
 	RobTkCBtn* d = (RobTkCBtn*)GET_HANDLE(handle);
 	bool recreate_patterns = FALSE;
 	if (h != d->w_height * d->rw->widget_scale) recreate_patterns = TRUE;
+	if (w != d->w_width * d->rw->widget_scale) d->scale = 0; // re-layout
 	d->w_width = w / d->rw->widget_scale;
 	d->w_height = h / d->rw->widget_scale;
-	if (recreate_patterns) create_cbtn_pattern(d);
+	if (recreate_patterns) {
+		d->scale = 0;
+		create_cbtn_pattern(d);
+	}
 	robwidget_set_size(handle, w, h);
 }
 

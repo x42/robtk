@@ -194,9 +194,13 @@ priv_pbtn_size_allocate(RobWidget* handle, int w, int h) {
 	RobTkPBtn * d = (RobTkPBtn *)GET_HANDLE(handle);
 	bool recreate_patterns = FALSE;
 	if (h != d->w_height * d->rw->widget_scale) recreate_patterns = TRUE;
+	if (w != d->w_width * d->rw->widget_scale) d->scale = 0; // re-layout
 	d->w_width = w / d->rw->widget_scale;
 	d->w_height = h / d->rw->widget_scale;
-	if (recreate_patterns) create_pbtn_pattern(d);
+	if (recreate_patterns) {
+		d->scale = 0;
+		create_cbtn_pattern(d);
+	}
 	robwidget_set_size(handle, w, h);
 }
 
