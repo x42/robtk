@@ -130,7 +130,7 @@ static RobWidget* robtk_pbtn_mousedown(RobWidget *handle, RobTkBtnEvent *event) 
 	d->enabled = TRUE;
 	if (d->cb_down) d->cb_down(d->rw, d->handle_down);
 	queue_draw(d->rw);
-	return handle;
+	return NULL;
 }
 
 static RobWidget* robtk_pbtn_mouseup(RobWidget *handle, RobTkBtnEvent *event) {
@@ -157,7 +157,11 @@ static void robtk_pbtn_enter_notify(RobWidget *handle) {
 
 static void robtk_pbtn_leave_notify(RobWidget *handle) {
 	RobTkPBtn * d = (RobTkPBtn *)GET_HANDLE(handle);
-	if (d->prelight) {
+	if (d->prelight || d->enabled) {
+		if (d->prelight && d->enabled) {
+			if (d->cb) d->cb(d->rw, d->handle);
+		}
+		d->enabled = FALSE;
 		d->prelight = FALSE;
 		queue_draw(d->rw);
 	}
