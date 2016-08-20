@@ -199,7 +199,7 @@ priv_pbtn_size_allocate(RobWidget* handle, int w, int h) {
 	d->w_height = h / d->rw->widget_scale;
 	if (recreate_patterns) {
 		d->scale = 0;
-		create_cbtn_pattern(d);
+		create_pbtn_pattern(d);
 	}
 	robwidget_set_size(handle, w, h);
 }
