@@ -334,16 +334,12 @@ priv_cbtn_size_allocate(RobWidget* handle, int w, int h) {
 
 static RobTkCBtn * robtk_cbtn_new(const char* txt, enum GedLedMode led, bool flat) {
 	assert(txt);
-	RobTkCBtn *d = (RobTkCBtn *) malloc(sizeof(RobTkCBtn));
+	RobTkCBtn *d = (RobTkCBtn *) calloc(1, sizeof(RobTkCBtn));
 
 	d->flat_button = flat;
 	d->show_led = led;
 	d->cb = NULL;
 	d->handle = NULL;
-	d->sf_txt_normal = NULL;
-	d->sf_txt_enabled = NULL;
-	d->btn_enabled = NULL;
-	d->btn_inactive = NULL;
 	d->sensitive = TRUE;
 	d->radiomode = FALSE;
 	d->temporary_mode = 0;
