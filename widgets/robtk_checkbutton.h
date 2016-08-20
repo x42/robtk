@@ -103,19 +103,19 @@ static void create_cbtn_text_surface (RobTkCBtn* d) {
 	d->scale = d->rw->widget_scale;
 
 	create_text_surface3 (&d->sf_txt_normal,
-			ceil(d->w_width * d->rw->widget_scale),
-			ceil(d->w_height * d->rw->widget_scale),
-			1 + floor (d->rw->widget_scale * ((d->w_width - (d->show_led ? GBT_LED_RADIUS + 6 : 0)) / 2.0 + (d->show_led < 0 ? GBT_LED_RADIUS + 6 : 0))),
-			1 + floor (d->rw->widget_scale * d->w_height / 2.0),
+			ceil(d->l_width * d->rw->widget_scale),
+			ceil(d->l_height * d->rw->widget_scale),
+			floor (d->rw->widget_scale * (d->l_width / 2.0)) + 1,
+			floor (d->rw->widget_scale * (d->l_height / 2.0)) + 1,
 			d->txt, font, c_col, d->rw->widget_scale);
 
 	get_color_from_theme(2, c_col);
 
 	create_text_surface3 (&d->sf_txt_enabled,
-			ceil (d->rw->widget_scale * d->w_width),
-			ceil (d->rw->widget_scale * d->w_height),
-			1 + floor (d->rw->widget_scale * ((d->w_width - (d->show_led ? GBT_LED_RADIUS + 6 : 0)) / 2.0 + (d->show_led < 0 ? GBT_LED_RADIUS + 6 : 0))),
-			1 + floor (d->rw->widget_scale * d->w_height / 2.0),
+			ceil(d->l_width * d->rw->widget_scale),
+			ceil(d->l_height * d->rw->widget_scale),
+			floor (d->rw->widget_scale * (d->l_width / 2.0)) + 1,
+			floor (d->rw->widget_scale * (d->l_height / 2.0)) + 1,
 			d->txt, font, c_col, d->rw->widget_scale);
 	pango_font_description_free(font);
 	pthread_mutex_unlock (&d->_mutex);
@@ -191,10 +191,13 @@ static bool robtk_cbtn_expose_event(RobWidget* handle, cairo_t* cr, cairo_rectan
 		cairo_fill(cr);
 	}
 
-	const float xalign = rint((d->w_width - d->l_width) * d->rw->xalign);
-	const float yalign = rint((d->w_height - d->l_height) * d->rw->yalign);
+	const float lspace = d->w_width - d->l_width - (d->show_led ? GBT_LED_RADIUS + 6 : 0);
+	const float lhpad   = d->show_led < 0 ? GBT_LED_RADIUS + 6 : 0;
+	const float xalign = rint((lhpad + lspace * d->rw->xalign) * d->scale);
+	const float yalign = rint((d->w_height - d->l_height) * d->rw->yalign * d->scale);
 
 	cairo_save (cr);
+
 	cairo_scale (cr, 1.0 / d->rw->widget_scale, 1.0 / d->rw->widget_scale);
 	if (d->flat_button && !d->sensitive) {
 		//cairo_set_operator (cr, CAIRO_OPERATOR_XOR); // check
@@ -372,7 +375,7 @@ static RobTkCBtn * robtk_cbtn_new(const char* txt, enum GedLedMode led, bool fla
 
 	create_cbtn_text_surface(d);
 
-	robwidget_set_alignment(d->rw, 0, .5);
+	robwidget_set_alignment(d->rw, .5, .5);
 	ROBWIDGET_SETNAME(d->rw, "cbtn");
 
 	robwidget_set_size_request(d->rw, priv_cbtn_size_request);
