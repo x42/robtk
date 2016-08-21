@@ -1298,16 +1298,18 @@ static void print_usage (void) {
 			);
 
 	printf ("\nOptions:\n"
-" -h, --help                Display this help and exit.\n"
+" -h, --help                Display this help and exit\n"
+" -j, --jack-name <name>    Set the JACK client name\n"
+"                           (defaults to plugin-name)\n"
 #ifdef X42_MULTIPLUGIN
-" -l, --list                Print list of available plugins and exit.\n"
+" -l, --list                Print list of available plugins and exit\n"
 #endif
-" -O <port>, --osc <port>   Listen for OSC messages on the given UDP port.\n"
+" -O <port>, --osc <port>   Listen for OSC messages on the given UDP port\n"
 " -p <idx>:<val>, --port <idx>:<val>\n"
-"                           Set initial value for given control port.\n"
-" -P, --portlist            Print control port list on startup.\n"
-" --osc-doc                 Print available OSC commands and exit.\n"
-" -V, --version             Print version information and exit.\n"
+"                           Set initial value for given control port\n"
+" -P, --portlist            Print control port list on startup\n"
+" --osc-doc                 Print available OSC commands and exit\n"
+" -V, --version             Print version information and exit\n"
 			);
 
 #ifdef X42_MULTIPLUGIN_URI
@@ -1361,9 +1363,11 @@ int main (int argc, char **argv) {
 	uint32_t c_ctrl = 0;
 	uint32_t n_pval = 0;
 	struct PValue *pval  = NULL;
+	char* jack_client_name = NULL;
 
 	const struct option long_options[] = {
 		{ "help",       no_argument,       0, 'h' },
+		{ "jack-name",  required_argument, 0, 'j' },
 		{ "list",       no_argument,       0, 'l' },
 		{ "osc",        required_argument, 0, 'O' },
 		{ "osc-doc",    no_argument,       0,  0x100 },
@@ -1372,7 +1376,7 @@ int main (int argc, char **argv) {
 		{ "version",    no_argument,       0, 'V' },
 	};
 
-	const char *optstring = "hlO:p:PV1";
+	const char *optstring = "hj:lO:p:PV1";
 
 	if (optind < argc && !strncmp (argv[optind], "-psn_0", 6)) {++optind;}
 
@@ -1382,6 +1386,9 @@ int main (int argc, char **argv) {
 			case 'h':
 				print_usage();
 				return 0;
+				break;
+			case 'j':
+				jack_client_name = optarg;
 				break;
 			case '1': // catch -1, backward compat
 			case 'l':
@@ -1562,7 +1569,7 @@ int main (int argc, char **argv) {
 		goto out;
 	}
 	/* jack-open -> samlerate */
-	if (init_jack(extui_host.plugin_human_id)) {
+	if (init_jack(jack_client_name ? jack_client_name : extui_host.plugin_human_id)) {
 		fprintf (stderr, "cannot connect to JACK.\n");
 #ifdef _WIN32
 		MessageBox (NULL, TEXT(
