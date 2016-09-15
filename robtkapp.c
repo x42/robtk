@@ -82,7 +82,7 @@ typedef struct _RtkLv2Description {
 
 static const LV2UI_Descriptor *plugin_gui;
 
-static LV2_Handle plugin_instance = NULL;
+//static LV2_Handle plugin_instance = NULL;
 static LV2UI_Handle gui_instance = NULL;
 
 static pthread_mutex_t gui_thread_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -117,6 +117,7 @@ static void cleanup(int sig) {
 }
 
 static void run_one() {
+	plugin_gui->port_event(gui_instance, 0, 0, 0, NULL);
 	LV2_EXTERNAL_UI_RUN(extui);
 }
 
@@ -191,12 +192,19 @@ int main (int argc, char **argv) {
 	gobject_init_ctor();
 #endif
 
+	struct { int argc; char **argv; } rtkargv;
+	rtkargv.argc = argc;
+	rtkargv.argv = argv;
+
 	const LV2_Feature external_lv_feature = { LV2_EXTERNAL_UI_URI, &extui_host};
 	const LV2_Feature external_kx_feature = { LV2_EXTERNAL_UI_URI__KX__Host, &extui_host};
+	const LV2_Feature robtk_argv = { "http://gareus.org/oss/lv2/robtk#argv", &rtkargv};
 
+	// TODO add argv[] as feature
 	const LV2_Feature* ui_features[] = {
 		&external_lv_feature,
 		&external_kx_feature,
+		&robtk_argv,
 		NULL
 	};
 
