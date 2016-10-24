@@ -872,7 +872,6 @@ static void reallocate_canvas(GLrobtkLV2UI* self) {
 #endif
 	self->queue_canvas_realloc = false;
 	if (self->cr) {
-		glDeleteTextures (1, &self->texture_id);
 		free (self->surf_data);
 #if __BIG_ENDIAN__
 		free (self->surf_data_be);
