@@ -217,7 +217,7 @@ typedef struct {
 	float                gpg_shade;
 #endif
 #ifdef INIT_PUGL_IN_THREAD
-	bool                 ui_initialized;
+	int                  ui_initialized;
 #endif
 	bool                 resize_in_progress;
 	bool                 resize_toplevel;
@@ -1245,7 +1245,7 @@ static void onScroll(PuglView* view, int x, int y, float dx, float dy) {
  * LV2 init/operation
  */
 
-static void pugl_init(GLrobtkLV2UI* self) {
+static int pugl_init(GLrobtkLV2UI* self) {
 	int dflw = self->width;
 	int dflh = self->height;
 
@@ -1267,7 +1267,9 @@ static void pugl_init(GLrobtkLV2UI* self) {
 			, self->ontop
 			, self->transient_id
 	);
-	assert (self->view); // XXX TODO handle gracefully
+	if (!self->view) {
+		return -1;
+	}
 
 	puglSetHandle(self->view, self);
 	puglSetDisplayFunc(self->view, onDisplay);
@@ -1303,6 +1305,7 @@ static void pugl_init(GLrobtkLV2UI* self) {
 #ifndef USE_GUI_THREAD
 	ui_enable (self->ui);
 #endif
+	return 0;
 }
 
 static void pugl_cleanup(GLrobtkLV2UI* self) {
@@ -1364,8 +1367,10 @@ static void* ui_thread(void* handle) {
 	pthread_mutex_lock (&self->msg_thread_lock);
 #endif
 #ifdef INIT_PUGL_IN_THREAD
-	pugl_init(self);
-	self->ui_initialized = TRUE;
+	if (pugl_init(self)) {
+		self->ui_initialized = -1;
+	}
+	self->ui_initialized = 1;
 #endif
 
 	while (!self->exit) {
@@ -1537,7 +1542,9 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 #endif
 
 #if (!defined USE_GUI_THREAD) || (!defined INIT_PUGL_IN_THREAD)
-	pugl_init(self);
+	if (pugl_init(self)) {
+		return NULL;
+	}
 #endif
 
 #ifdef USE_GUI_THREAD
@@ -1548,6 +1555,11 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 	while (!self->ui_initialized) {
 		myusleep(1000);
 		sched_yield();
+	}
+	if (self->ui_initialized < 0) {
+		self->exit = true;
+		pthread_join(self->thread, NULL);
+		return NULL;
 	}
 #endif
 #endif
