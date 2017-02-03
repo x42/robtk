@@ -47,6 +47,7 @@ struct PuglInternalsImpl {
 	HDC      hdc;
 	HGLRC    hglrc;
 	WNDCLASS wc;
+	bool     keep_aspect;
 };
 
 LRESULT CALLBACK
@@ -74,6 +75,7 @@ puglCreate(PuglNativeWindow parent,
 	view->height = height;
 	view->ontop  = ontop;
 	view->user_resizable = resizable && !parent;
+	view->impl->keep_aspect = min_width != width;
 
 	// FIXME: This is nasty, and pugl should not have static anything.
 	// Should class be a parameter?  Does this make sense on other platforms?
@@ -325,11 +327,36 @@ handleMessage(PuglView* view, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_CREATE:
 	case WM_SHOWWINDOW:
 	case WM_SIZE:
-		RECT rect;
-		GetClientRect(view->impl->hwnd, &rect);
-		puglReshape(view, rect.right, rect.bottom);
-		view->width = rect.right;
-		view->height = rect.bottom;
+		{
+			RECT rect;
+			GetClientRect(view->impl->hwnd, &rect);
+			puglReshape(view, rect.right, rect.bottom);
+			view->width = rect.right;
+			view->height = rect.bottom;
+		}
+		break;
+	case WM_SIZING:
+		if (view->impl->keep_aspect) {
+			float aspect = view->min_width / (float)view->min_height;
+			RECT* rect = (RECT*)lParam;
+			switch ((int)wParam) {
+				case WMSZ_LEFT:
+				case WMSZ_RIGHT:
+				case WMSZ_BOTTOMLEFT:
+				case WMSZ_BOTTOMRIGHT:
+					rect->bottom = rect->top + (rect->right - rect->left) / aspect;
+					break;
+				case WMSZ_TOP:
+				case WMSZ_BOTTOM:
+				case WMSZ_TOPRIGHT:
+					rect->right = rect->left + (rect->bottom - rect->top) * aspect;
+					break;
+				case WMSZ_TOPLEFT:
+					rect->left = rect->right - (rect->bottom - rect->top) * aspect;
+					break;
+			}
+			return TRUE;
+		}
 		break;
 	case WM_GETMINMAXINFO:
 		{
