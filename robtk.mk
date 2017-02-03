@@ -29,7 +29,7 @@ endif
 ifeq ($(USEWEAKJACK),1)
   JACKCFLAGS+=-DUSE_WEAK_JACK
   JACKEXTRA+=$(RW)weakjack/weak_libjack.c
-  ifneq ($(XWIN),)
+  ifeq ($(XWIN),)
     JACKLIBS+=-ldl
   endif
 else
