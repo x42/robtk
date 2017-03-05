@@ -292,6 +292,11 @@ static void
 processMouseEvent(PuglView* view, int button, bool press, LPARAM lParam)
 {
 	view->event_timestamp_ms = GetMessageTime();
+	if (GetFocus() != view->impl->hwnd) {
+		// focus is needed to receive mouse-wheel events
+		SetFocus (view->impl->hwnd);
+	}
+
 	if (press) {
 		SetCapture(view->impl->hwnd);
 	} else {
