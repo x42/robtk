@@ -48,6 +48,7 @@ struct PuglInternalsImpl {
 	HGLRC    hglrc;
 	WNDCLASS wc;
 	bool     keep_aspect;
+	int      win_flags;
 };
 
 LRESULT CALLBACK
@@ -102,21 +103,26 @@ puglCreate(PuglNativeWindow parent,
 		return NULL;
 	}
 
+	if (parent) {
+		view->impl->win_flags = WS_CHILD;
+	} else {
+		view->impl->win_flags = WS_POPUPWINDOW | WS_CAPTION | (view->user_resizable ? WS_SIZEBOX : 0);
+	}
+
 	// Adjust the overall window size to accomodate our requested client size
-	int winFlags = WS_POPUPWINDOW | WS_CAPTION | (view->user_resizable ? WS_SIZEBOX : 0);
 	RECT wr = { 0, 0, width, height };
-	AdjustWindowRectEx(&wr, winFlags, FALSE, WS_EX_TOPMOST);
+	AdjustWindowRectEx(&wr, view->impl->win_flags, FALSE, WS_EX_TOPMOST);
 
 	RECT mr = { 0, 0, min_width, min_height };
-	AdjustWindowRectEx(&mr, winFlags, FALSE, WS_EX_TOPMOST);
-	view->min_width  = mr.right-mr.left;
-	view->min_height = wr.bottom-mr.top;
+	AdjustWindowRectEx(&mr, view->impl->win_flags, FALSE, WS_EX_TOPMOST);
+	view->min_width  = mr.right - mr.left;
+	view->min_height = mr.bottom - mr.top;
 
-	impl->hwnd = CreateWindowEx(
+	impl->hwnd = CreateWindowEx (
 		WS_EX_TOPMOST,
 		classNameBuf, title, (view->user_resizable ? WS_SIZEBOX : 0) |
 		(parent ? (WS_CHILD | WS_VISIBLE) : (WS_POPUPWINDOW | WS_CAPTION)),
-		0, 0, wr.right-wr.left, wr.bottom-wr.top,
+		0, 0, wr.right - wr.left, wr.bottom - wr.top,
 		(HWND)parent, NULL, NULL, NULL);
 
 	if (!impl->hwnd) {
@@ -129,7 +135,7 @@ puglCreate(PuglNativeWindow parent,
 	SetWindowLongPtr(impl->hwnd, GWL_USERDATA, (LONG_PTR)view);
 
 	SetWindowPos (impl->hwnd,
-			ontop ? HWND_TOPMOST : HWND_NOTOPMOST,
+			ontop ? HWND_TOPMOST : HWND_TOP,
 			0, 0, 0, 0, (ontop ? 0 : SWP_NOACTIVATE) | SWP_ASYNCWINDOWPOS | SWP_NOMOVE | SWP_NOSIZE);
 
 	impl->hdc = GetDC(impl->hwnd);
@@ -240,17 +246,24 @@ puglResize(PuglView* view)
 	/* ask the plugin about the new size */
 	view->resizeFunc(view, &view->width, &view->height, &set_hints);
 
-	int winFlags = WS_POPUPWINDOW | WS_CAPTION | (view->user_resizable ? WS_SIZEBOX : 0);
-	RECT wr = { 0, 0, (long)view->width, (long)view->height };
+	HWND parent = GetParent (view->impl->hwnd);
+	if (parent) {
+		puglReshape(view, view->width, view->height);
+		SetWindowPos (view->impl->hwnd, HWND_TOP,
+				0, 0, view->width, view->height,
+				SWP_NOZORDER | SWP_NOMOVE);
+		return;
+	}
 
-	AdjustWindowRectEx(&wr, winFlags, FALSE, WS_EX_TOPMOST);
+	RECT wr = { 0, 0, (long)view->width, (long)view->height };
+	AdjustWindowRectEx(&wr, view->impl->win_flags, FALSE, WS_EX_TOPMOST);
 	SetWindowPos (view->impl->hwnd,
 			view->ontop ? HWND_TOPMOST : HWND_NOTOPMOST,
 			0, 0, wr.right-wr.left, wr.bottom-wr.top,
 			SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOOWNERZORDER /*|SWP_NOZORDER*/);
 	UpdateWindow(view->impl->hwnd);
 
-	/* and call Reshape in GlX context */
+	/* and call Reshape in GL context */
 	puglReshape(view, view->width, view->height);
 }
 

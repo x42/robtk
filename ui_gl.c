@@ -708,9 +708,6 @@ static void resize_toplevel(RobWidget *rw, int w, int h) {
 	resize_self(rw);
 	self->resize_in_progress = TRUE;
 	self->resize_toplevel = TRUE;
-#ifdef TIMED_RESHAPE
-	self->queue_reshape = 1;
-#endif
 	puglPostResize(self->view);
 }
 
@@ -868,7 +865,7 @@ static void myusleep(uint32_t usec) {
 
 static void reallocate_canvas(GLrobtkLV2UI* self) {
 #ifdef DEBUG_RESIZE
-	printf("reallocate_canvas()\n");
+	printf("reallocate_canvas to %d x %d\n", self->width, self->height);
 #endif
 	self->queue_canvas_realloc = false;
 	if (self->cr) {
@@ -995,7 +992,7 @@ static void onResize(PuglView* view, int *width, int *height, int *set_hints) {
 	GLrobtkLV2UI* self = (GLrobtkLV2UI*)puglGetHandle(view);
 	assert(width && height);
 #ifdef DEBUG_RESIZE
-	printf("onResize()\n");
+	printf("onResize( %d x %d  -> %d x %d)\n", *width, *height, self->width, self->height);
 #endif
 
 	if (*width != self->width || *height != self->height) {
