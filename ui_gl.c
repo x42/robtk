@@ -654,7 +654,7 @@ static void robwidget_layout(GLrobtkLV2UI * const self, bool setsize, bool init)
 		self->width = nox;
 		self->height = noy;
 	} else if (nox > self->width || noy > self->height) {
-		LVGLResize rsz = plugin_scale_mode(self->ui);
+		enum LVGLResize rsz = plugin_scale_mode(self->ui);
 		if (rsz == LVGL_ZOOM_TO_ASPECT || rsz == LVGL_LAYOUT_TO_FIT) {
 			puglUpdateGeometryConstraints(self->view, nox, noy, rsz == LVGL_ZOOM_TO_ASPECT);
 			return;
@@ -664,7 +664,7 @@ static void robwidget_layout(GLrobtkLV2UI * const self, bool setsize, bool init)
 		if (nox > self->width) self->width = nox;
 		if (noy > self->height) self->height = noy;
 	} else if (nox < self->width || noy < self->height) {
-		LVGLResize rsz = plugin_scale_mode(self->ui);
+		enum LVGLResize rsz = plugin_scale_mode(self->ui);
 		if (rsz == LVGL_ZOOM_TO_ASPECT || rsz == LVGL_LAYOUT_TO_FIT) {
 			puglUpdateGeometryConstraints(self->view, nox, noy, rsz == LVGL_ZOOM_TO_ASPECT);
 		}
