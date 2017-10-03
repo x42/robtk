@@ -370,6 +370,19 @@ struct PuglInternalsImpl {
 	id                   window;
 };
 
+static NSLayoutConstraint*
+puglConstraint(id item, NSLayoutAttribute attribute, float constant)
+{
+	return [NSLayoutConstraint
+		       constraintWithItem: item
+		                attribute: attribute
+		                relatedBy: NSLayoutRelationGreaterThanOrEqual
+		                   toItem: nil
+		                attribute: NSLayoutAttributeNotAnAttribute
+		               multiplier: 1.0
+		                 constant: constant];
+}
+
 PuglView*
 puglCreate(PuglNativeWindow parent,
            const char*      title,
@@ -400,6 +413,10 @@ puglCreate(PuglNativeWindow parent,
 	impl->glview->puglview = view;
 
 	[impl->glview setFrameSize:NSMakeSize(view->width, view->height)];
+	[impl->glview addConstraint:
+		     puglConstraint(impl->glview, NSLayoutAttributeWidth, min_width)];
+	[impl->glview addConstraint:
+		     puglConstraint(impl->glview, NSLayoutAttributeHeight, min_height)];
 
 	if (parent) {
 		NSView* pview = (NSView*) parent;
