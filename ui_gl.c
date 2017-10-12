@@ -100,7 +100,9 @@
 #include "gl/posringbuf.h"
 #include "robtk.h"
 
-#include "gpg_init.c"
+#ifdef WITH_SIGNATURE
+# include "gpg_init.c"
+#endif
 
 static void opengl_init () {
 	glClearColor (0.0f, 0.0f, 0.0f, 0.0f);
@@ -1481,9 +1483,8 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 
 #ifdef WITH_SIGNATURE
 	self->gpg_shade = 0;
-#endif
-
 # include "gpg_check.c"
+#endif
 
 	self->tl = NULL;
 	self->ui = instantiate(self,
