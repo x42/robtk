@@ -413,6 +413,10 @@ puglCreate(PuglNativeWindow parent,
 	impl->glview->puglview = view;
 
 	[impl->glview setFrameSize:NSMakeSize(view->width, view->height)];
+	[impl->glview addConstraint:
+		     puglConstraint(impl->glview, NSLayoutAttributeWidth, min_width)];
+	[impl->glview addConstraint:
+		     puglConstraint(impl->glview, NSLayoutAttributeHeight, min_height)];
 
 	if (parent) {
 		NSView* pview = (NSView*) parent;
