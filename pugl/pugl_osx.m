@@ -370,19 +370,6 @@ struct PuglInternalsImpl {
 	id                   window;
 };
 
-static NSLayoutConstraint*
-puglConstraint(id item, NSLayoutAttribute attribute, float constant)
-{
-	return [NSLayoutConstraint
-		       constraintWithItem: item
-		                attribute: attribute
-		                relatedBy: NSLayoutRelationGreaterThanOrEqual
-		                   toItem: nil
-		                attribute: NSLayoutAttributeNotAnAttribute
-		               multiplier: 1.0
-		                 constant: constant];
-}
-
 PuglView*
 puglCreate(PuglNativeWindow parent,
            const char*      title,
@@ -418,10 +405,6 @@ puglCreate(PuglNativeWindow parent,
 		NSView* pview = (NSView*) parent;
 		[pview addSubview:impl->glview];
 		[impl->glview setHidden:NO];
-		[impl->glview addConstraint:
-			puglConstraint(impl->glview, NSLayoutAttributeWidth, min_width)];
-		[impl->glview addConstraint:
-			puglConstraint(impl->glview, NSLayoutAttributeHeight, min_height)];
 		if (!resizable) {
 			[impl->glview setAutoresizingMask:NSViewNotSizable];
 		}
