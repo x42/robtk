@@ -1255,7 +1255,7 @@ static int pugl_init(GLrobtkLV2UI* self) {
 	// Set up GL UI
 	self->view = puglCreate(
 			self->extui ? (PuglNativeWindow) NULL : self->parent,
-			self->extui ? self->extui->plugin_human_id : "robtk",
+			self->extui ? self->extui->plugin_human_id : RTK_URI,
 			self->width, self->height,
 			dflw, dflh,
 #ifdef LVGL_RESIZEABLE
