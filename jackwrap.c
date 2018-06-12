@@ -1276,7 +1276,7 @@ static void print_usage (void) {
 	printf ("This is a standalone JACK application of a collection of LV2 plugins.\n"
 		"Use ID -1, -l or --list for a dedicated list of included plugins.\n"
 		"By default the first listed plugin (ID 0) is used.\n\n");
-	printf ("List if available plugins: (ID \"Name\" URI)\n");
+	printf ("List of available plugins: (ID \"Name\" URI)\n");
 	list_plugins();
 
 #else
