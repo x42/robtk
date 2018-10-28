@@ -68,6 +68,10 @@ typedef struct _RobTkDial {
 	void (*ann) (struct _RobTkDial* d, cairo_t *cr, void* handle);
 	void* ann_handle;
 
+	void (*touch_cb) (void*, uint32_t, bool);
+	void*    touch_hd;
+	uint32_t touch_id;
+
 	cairo_pattern_t* dpat;
 	cairo_surface_t* bg;
 	float bg_scale;
@@ -243,6 +247,9 @@ static void robtk_dial_update_value(RobTkDial * d, float val) {
 static RobWidget* robtk_dial_mousedown(RobWidget* handle, RobTkBtnEvent *ev) {
 	RobTkDial * d = (RobTkDial *)GET_HANDLE(handle);
 	if (!d->sensitive) { return NULL; }
+	if (d->touch_cb) {
+		d->touch_cb (d->touch_hd, d->touch_id, true);
+	}
 	if (ev->state & ROBTK_MOD_SHIFT) {
 		robtk_dial_update_value(d, d->dfl);
 		robtk_dial_update_state(d, d->click_dflt);
@@ -276,6 +283,9 @@ static RobWidget* robtk_dial_mouseup(RobWidget* handle, RobTkBtnEvent *ev) {
 		robtk_dial_update_state(d, (d->click_state + 1) % (d->click_states + 1));
 	}
 	d->clicking = FALSE;
+	if (d->touch_cb) {
+		d->touch_cb (d->touch_hd, d->touch_id, false);
+	}
 	queue_draw(d->rw);
 	return NULL;
 }
@@ -427,7 +437,16 @@ static RobWidget* robtk_dial_scroll(RobWidget* handle, RobTkBtnEvent *ev) {
 		default:
 			break;
 	}
+
+	if (d->touch_cb) {
+		d->touch_cb (d->touch_hd, d->touch_id, true);
+	}
+
 	robtk_dial_update_value(d, val);
+
+	if (d->touch_cb) {
+		d->touch_cb (d->touch_hd, d->touch_id, false);
+	}
 	return NULL;
 }
 
@@ -541,6 +560,9 @@ static RobTkDial * robtk_dial_new_with_size(float min, float max, float step,
 	d->handle = NULL;
 	d->ann = NULL;
 	d->ann_handle = NULL;
+	d->touch_cb = NULL;
+	d->touch_hd = NULL;
+	d->touch_id = 0;
 	d->min = min;
 	d->max = max;
 	d->acc = step;
@@ -624,6 +646,12 @@ static void robtk_dial_set_callback(RobTkDial *d, bool (*cb) (RobWidget* w, void
 static void robtk_dial_annotation_callback(RobTkDial *d, void (*cb) (RobTkDial* d, cairo_t *cr, void* handle), void* handle) {
 	d->ann = cb;
 	d->ann_handle = handle;
+}
+
+static void robtk_dial_set_touch(RobTkDial *d, void (*cb) (void*, uint32_t, bool), void* handle, uint32_t id) {
+	d->touch_cb = cb;
+	d->touch_hd = handle;
+	d->touch_id = id;
 }
 
 static void robtk_dial_set_default(RobTkDial *d, float v) {
