@@ -42,6 +42,10 @@ typedef struct {
 	bool (*cb) (RobWidget* w, void* handle);
 	void* handle;
 
+	void (*touch_cb) (void*, uint32_t, bool);
+	void*    touch_hd;
+	uint32_t touch_id;
+
 	int active_item;
 	int item_count;
 	int dfl;
@@ -163,9 +167,20 @@ static void robtk_select_set_active_item(RobTkSelect *d, int i) {
 	queue_draw(d->rw);
 }
 
+static RobWidget* robtk_select_mousedown(RobWidget* handle, RobTkBtnEvent *ev) {
+	RobTkSelect * d = (RobTkSelect *)GET_HANDLE(handle);
+	if (!d->sensitive) { return NULL; }
+	if (!d->prelight) { return NULL; }
+	if (d->touch_cb) {
+		d->touch_cb (d->touch_hd, d->touch_id, true);
+	}
+	return NULL;
+}
+
 static RobWidget* robtk_select_mouseup(RobWidget* handle, RobTkBtnEvent *ev) {
 	RobTkSelect * d = (RobTkSelect *)GET_HANDLE(handle);
 	if (!d->sensitive) { return NULL; }
+	if (!d->prelight) { return NULL; }
 
 	if (ev->state & ROBTK_MOD_SHIFT) {
 		robtk_select_set_active_item(d, d->dfl);
@@ -188,6 +203,9 @@ static RobWidget* robtk_select_mouseup(RobWidget* handle, RobTkBtnEvent *ev) {
 	}
 
 	robtk_select_set_active_item(d, active_item);
+	if (d->touch_cb) {
+		d->touch_cb (d->touch_hd, d->touch_id, false);
+	}
 	return NULL;
 }
 
@@ -232,7 +250,13 @@ static RobWidget* robtk_select_scroll(RobWidget* handle, RobTkBtnEvent *ev) {
 		default:
 			break;
 	}
+	if (d->touch_cb) {
+		d->touch_cb (d->touch_hd, d->touch_id, true);
+	}
 	robtk_select_set_active_item(d, active_item);
+	if (d->touch_cb) {
+		d->touch_cb (d->touch_hd, d->touch_id, false);
+	}
 	return handle;
 }
 
@@ -288,6 +312,9 @@ static RobTkSelect * robtk_select_new() {
 	d->lightarr = 0;
 	d->cb = NULL;
 	d->handle = NULL;
+	d->touch_cb = NULL;
+	d->touch_hd = NULL;
+	d->touch_id = 0;
 	d->scale = 1.0;
 	pthread_mutex_init (&d->_mutex, 0);
 
@@ -302,6 +329,7 @@ static RobTkSelect * robtk_select_new() {
 	ROBWIDGET_SETNAME(d->rw, "select");
 	robwidget_set_expose_event(d->rw, robtk_select_expose_event);
 	robwidget_set_mouseup(d->rw, robtk_select_mouseup);
+	robwidget_set_mousedown(d->rw, robtk_select_mousedown);
 	robwidget_set_mousemove(d->rw, robtk_select_mousemove);
 	robwidget_set_mousescroll(d->rw, robtk_select_scroll);
 	robwidget_set_enter_notify(d->rw, robtk_select_enter_notify);
@@ -348,6 +376,12 @@ static RobWidget * robtk_select_widget(RobTkSelect *d) {
 static void robtk_select_set_callback(RobTkSelect *d, bool (*cb) (RobWidget* w, void* handle), void* handle) {
 	d->cb = cb;
 	d->handle = handle;
+}
+
+static void robtk_select_set_touch(RobTkSelect *d, void (*cb) (void*, uint32_t, bool), void* handle, uint32_t id) {
+	d->touch_cb = cb;
+	d->touch_hd = handle;
+	d->touch_id = id;
 }
 
 static void robtk_select_set_default_item(RobTkSelect *d, int i) {
