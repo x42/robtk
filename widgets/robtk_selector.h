@@ -39,8 +39,9 @@ typedef struct {
 	bool wraparound;
 	cairo_pattern_t* btn_bg;
 
-	bool (*cb) (RobWidget* w, gpointer handle);
-	gpointer handle;
+	bool (*cb) (RobWidget* w, void* handle);
+	void* handle;
+
 	int active_item;
 	int item_count;
 	int dfl;
@@ -344,7 +345,7 @@ static RobWidget * robtk_select_widget(RobTkSelect *d) {
 	return d->rw;
 }
 
-static void robtk_select_set_callback(RobTkSelect *d, bool (*cb) (RobWidget* w, gpointer handle), gpointer handle) {
+static void robtk_select_set_callback(RobTkSelect *d, bool (*cb) (RobWidget* w, void* handle), void* handle) {
 	d->cb = cb;
 	d->handle = handle;
 }
