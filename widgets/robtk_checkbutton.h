@@ -288,10 +288,11 @@ static RobWidget* robtk_cbtn_mousedown(RobWidget *handle, RobTkBtnEvent *event) 
 static RobWidget* robtk_cbtn_mouseup(RobWidget *handle, RobTkBtnEvent *event) {
 	RobTkCBtn * d = (RobTkCBtn *)GET_HANDLE(handle);
 	if (!d->sensitive) { return NULL; }
-	if (!d->prelight) { return NULL; }
 	if (d->radiomode && d->enabled) { return NULL; }
 	if (event->button !=1 && !((d->temporary_mode & 1) && event->button == 3)) { return NULL; }
-	robtk_cbtn_update_enabled(d, ! d->enabled);
+	if (d->prelight) {
+		robtk_cbtn_update_enabled(d, ! d->enabled);
+	}
 	if (d->touch_cb && event->button == 1) {
 		d->touch_cb (d->touch_hd, d->touch_id, false);
 	}

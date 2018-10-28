@@ -180,7 +180,12 @@ static RobWidget* robtk_select_mousedown(RobWidget* handle, RobTkBtnEvent *ev) {
 static RobWidget* robtk_select_mouseup(RobWidget* handle, RobTkBtnEvent *ev) {
 	RobTkSelect * d = (RobTkSelect *)GET_HANDLE(handle);
 	if (!d->sensitive) { return NULL; }
-	if (!d->prelight) { return NULL; }
+	if (!d->prelight) {
+		if (d->touch_cb) {
+			d->touch_cb (d->touch_hd, d->touch_id, false);
+		}
+		return NULL;
+	}
 
 	if (ev->state & ROBTK_MOD_SHIFT) {
 		robtk_select_set_active_item(d, d->dfl);
@@ -203,6 +208,7 @@ static RobWidget* robtk_select_mouseup(RobWidget* handle, RobTkBtnEvent *ev) {
 	}
 
 	robtk_select_set_active_item(d, active_item);
+
 	if (d->touch_cb) {
 		d->touch_cb (d->touch_hd, d->touch_id, false);
 	}
@@ -253,7 +259,9 @@ static RobWidget* robtk_select_scroll(RobWidget* handle, RobTkBtnEvent *ev) {
 	if (d->touch_cb) {
 		d->touch_cb (d->touch_hd, d->touch_id, true);
 	}
+
 	robtk_select_set_active_item(d, active_item);
+
 	if (d->touch_cb) {
 		d->touch_cb (d->touch_hd, d->touch_id, false);
 	}
