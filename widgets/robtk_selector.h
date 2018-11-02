@@ -45,6 +45,7 @@ typedef struct {
 	void (*touch_cb) (void*, uint32_t, bool);
 	void*    touch_hd;
 	uint32_t touch_id;
+	bool     touching;
 
 	int active_item;
 	int item_count;
@@ -256,15 +257,12 @@ static RobWidget* robtk_select_scroll(RobWidget* handle, RobTkBtnEvent *ev) {
 		default:
 			break;
 	}
-	if (d->touch_cb) {
+	if (d->touch_cb && !d->touching) {
 		d->touch_cb (d->touch_hd, d->touch_id, true);
+		d->touching = TRUE;
 	}
 
 	robtk_select_set_active_item(d, active_item);
-
-	if (d->touch_cb) {
-		d->touch_cb (d->touch_hd, d->touch_id, false);
-	}
 	return handle;
 }
 
@@ -278,6 +276,9 @@ static void robtk_select_enter_notify(RobWidget *handle) {
 
 static void robtk_select_leave_notify(RobWidget *handle) {
 	RobTkSelect * d = (RobTkSelect *)GET_HANDLE(handle);
+	if (d->touch_cb && d->touching) {
+		d->touch_cb (d->touch_hd, d->touch_id, false);
+	}
 	if (d->prelight) {
 		d->prelight = FALSE;
 		queue_draw(d->rw);
@@ -323,6 +324,7 @@ static RobTkSelect * robtk_select_new() {
 	d->touch_cb = NULL;
 	d->touch_hd = NULL;
 	d->touch_id = 0;
+	d->touching = FALSE;
 	d->scale = 1.0;
 	pthread_mutex_init (&d->_mutex, 0);
 

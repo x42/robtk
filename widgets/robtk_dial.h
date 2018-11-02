@@ -71,6 +71,7 @@ typedef struct _RobTkDial {
 	void (*touch_cb) (void*, uint32_t, bool);
 	void*    touch_hd;
 	uint32_t touch_id;
+	bool     touching;
 
 	cairo_pattern_t* dpat;
 	cairo_surface_t* bg;
@@ -375,6 +376,10 @@ static void robtk_dial_enter_notify(RobWidget *handle) {
 
 static void robtk_dial_leave_notify(RobWidget *handle) {
 	RobTkDial * d = (RobTkDial *)GET_HANDLE(handle);
+	if (d->touch_cb && d->touching) {
+		d->touch_cb (d->touch_hd, d->touch_id, false);
+		d->touching = FALSE;
+	}
 	if (d->prelight) {
 		d->prelight = FALSE;
 		d->scroll_accel = 1.0;
@@ -438,15 +443,12 @@ static RobWidget* robtk_dial_scroll(RobWidget* handle, RobTkBtnEvent *ev) {
 			break;
 	}
 
-	if (d->touch_cb) {
+	if (d->touch_cb && !d->touching) {
 		d->touch_cb (d->touch_hd, d->touch_id, true);
+		d->touching = TRUE;
 	}
 
 	robtk_dial_update_value(d, val);
-
-	if (d->touch_cb) {
-		d->touch_cb (d->touch_hd, d->touch_id, false);
-	}
 	return NULL;
 }
 
@@ -563,6 +565,7 @@ static RobTkDial * robtk_dial_new_with_size(float min, float max, float step,
 	d->touch_cb = NULL;
 	d->touch_hd = NULL;
 	d->touch_id = 0;
+	d->touching = FALSE;
 	d->min = min;
 	d->max = max;
 	d->acc = step;
