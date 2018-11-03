@@ -278,6 +278,7 @@ static void robtk_select_leave_notify(RobWidget *handle) {
 	RobTkSelect * d = (RobTkSelect *)GET_HANDLE(handle);
 	if (d->touch_cb && d->touching) {
 		d->touch_cb (d->touch_hd, d->touch_id, false);
+		d->touching = FALSE;
 	}
 	if (d->prelight) {
 		d->prelight = FALSE;
