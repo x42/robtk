@@ -1306,6 +1306,9 @@ static void print_usage (void) {
 " -h, --help                Display this help and exit\n"
 " -j, --jack-name <name>    Set the JACK client name\n"
 "                           (defaults to plugin-name)\n"
+#ifndef REQUIRE_UI
+" -G, --nogui               run headless, useful for OSC remote ctrl.\n"
+#endif
 #ifdef X42_MULTIPLUGIN
 " -l, --list                Print list of available plugins and exit\n"
 #endif
@@ -1363,6 +1366,7 @@ int main (int argc, char **argv) {
 	int rv = 0;
 	int osc_port = 0;
 	bool dump_ports = false;
+	bool headless   = false;
 	uint32_t c_ain  = 0;
 	uint32_t c_aout = 0;
 	uint32_t c_ctrl = 0;
@@ -1374,6 +1378,7 @@ int main (int argc, char **argv) {
 		{ "help",       no_argument,       0, 'h' },
 		{ "jack-name",  required_argument, 0, 'j' },
 		{ "list",       no_argument,       0, 'l' },
+		{ "nogui",      no_argument,       0, 'G' },
 		{ "osc",        required_argument, 0, 'O' },
 		{ "osc-doc",    no_argument,       0,  0x100 },
 		{ "port",       required_argument, 0, 'p' },
@@ -1381,7 +1386,7 @@ int main (int argc, char **argv) {
 		{ "version",    no_argument,       0, 'V' },
 	};
 
-	const char *optstring = "hj:lO:p:PV1";
+	const char *optstring = "Ghj:lO:p:PV1";
 
 	if (optind < argc && !strncmp (argv[optind], "-psn_0", 6)) {++optind;}
 
@@ -1391,6 +1396,11 @@ int main (int argc, char **argv) {
 			case 'h':
 				print_usage();
 				return 0;
+				break;
+			case 'G':
+#ifndef REQUIRE_UI
+				headless = true;
+#endif
 				break;
 			case 'j':
 				jack_client_name = optarg;
@@ -1689,7 +1699,7 @@ int main (int argc, char **argv) {
 		goto out;
 	}
 
-	if (plugin_gui) {
+	if (plugin_gui && !headless) {
 	/* init plugin GUI */
 	extui_host.ui_closed = on_external_ui_closed;
 	instance_feature.data = plugin_instance;
@@ -1706,7 +1716,9 @@ int main (int argc, char **argv) {
 		rv |= 2;
 		goto out;
 #else
-		fprintf(stderr, "Warning: GUI initialization failed.\n");
+		if (!headless) {
+			fprintf(stderr, "Warning: GUI initialization failed.\n");
+		}
 #endif
 	}
 
