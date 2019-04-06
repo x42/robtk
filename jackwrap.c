@@ -638,7 +638,6 @@ static int jack_graph_order_cb (void *arg) {
 
 static void jack_latency_cb (jack_latency_callback_mode_t mode, void *arg) {
 	// assume 1 -> 1 map
-	// TODO add systemic latency of plugin (currently no robtk plugins add latency)
 	jack_graph_order_cb(NULL); // update worst-case latency, delayline alignment
 	if (mode == JackCaptureLatency) {
 		for (uint32_t i = 0; i < inst->nports_audio_out; i++) {
@@ -767,7 +766,7 @@ static void jack_portconnect(int which) {
 	if (which & 1) { // connect audio input(s)
 		const char **ports = jack_get_ports(j_client, NULL, JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput|JackPortIsPhysical);
 		for (uint32_t i = 0; i < inst->nports_audio_in && ports && ports[i]; i++) {
-			if (jack_connect (j_client, jack_port_name (input_port[i]), ports[i]))
+			if (jack_connect (j_client, ports[i], jack_port_name (input_port[i])))
 				break;
 		}
 		if (ports) { jack_free(ports); }
@@ -785,7 +784,7 @@ static void jack_portconnect(int which) {
 	if ((which & 4) && midi_in) { // midi in
 		const char **ports = jack_get_ports(j_client, NULL, JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput|JackPortIsPhysical);
 		if (ports && ports[0]) {
-			jack_connect (j_client, jack_port_name (midi_in), ports[0]);
+			jack_connect (j_client, ports[0], jack_port_name (midi_in));
 		}
 		if (ports) { jack_free(ports); }
 	}
