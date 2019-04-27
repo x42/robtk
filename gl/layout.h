@@ -257,14 +257,20 @@ static bool rcontainer_expose_event_no_clear(RobWidget* rw, cairo_t* cr, cairo_r
 
 static bool rcontainer_expose_event(RobWidget* rw, cairo_t* cr, cairo_rectangle_t *ev) {
 	if (rw->resized) {
+#if 1
 		cairo_rectangle_t event;
 		event.x = MAX(0, ev->x - rw->area.x);
 		event.y = MAX(0, ev->y - rw->area.y);
-		event.width  = MIN(rw->area.x + rw->area.width , ev->x + ev->width)   - MAX(ev->x, rw->area.x);
+		event.width  = MIN(rw->area.x + rw->area.width , ev->x + ev->width)  - MAX(ev->x, rw->area.x);
 		event.height = MIN(rw->area.y + rw->area.height, ev->y + ev->height) - MAX(ev->y, rw->area.y);
 		cairo_save(cr);
 		rcontainer_clear_bg(rw, cr, &event);
 		cairo_restore(cr);
+#else
+		cairo_save(cr);
+		rcontainer_clear_bg(rw, cr, ev);
+		cairo_restore(cr);
+#endif
 	}
 	return rcontainer_expose_event_no_clear(rw, cr, ev);
 }
