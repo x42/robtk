@@ -278,6 +278,9 @@ static RobWidget* robtk_cbtn_mousedown(RobWidget *handle, RobTkBtnEvent *event) 
 	if (d->touch_cb && event->button == 1) {
 		d->touch_cb (d->touch_hd, d->touch_id, true);
 	}
+	if (d->ttip) {
+		d->ttip (d->rw, false, d->ttip_handle);
+	}
 	if (   ((d->temporary_mode & 1) && event->button == 3)
 	    || ((d->temporary_mode & 2) && event->state & ROBTK_MOD_SHIFT)
 	    || ((d->temporary_mode & 4) && event->state & ROBTK_MOD_CTRL)
