@@ -1489,6 +1489,14 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 		}
 	}
 
+	if (self->transient_id != 0) {
+		self->ontop = false;
+	}
+
+	if (getenv("X42_ON_TOP")) {
+		self->ontop = 0 != atoi (getenv("X42_ON_TOP"));
+	}
+
 	if (!self->parent && !self->extui) {
 		fprintf(stderr, "error: No parent window provided.\n");
 		free(self);
