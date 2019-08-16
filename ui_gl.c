@@ -878,6 +878,10 @@ static void reallocate_canvas(GLrobtkLV2UI* self) {
 		cairo_destroy (self->cr);
 	}
 	opengl_reallocate_texture(self->width, self->height, &self->texture_id);
+	if (self->surface) {
+		cairo_surface_destroy (self->surface);
+		self->surface = NULL;
+	}
 	self->cr = opengl_create_cairo_t(self->width, self->height, &self->surface, &self->surf_data);
 
 #if __BIG_ENDIAN__
@@ -1533,7 +1537,7 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 	assert(self->width > 0 && self->height > 0);
 
 	self->cr = NULL;
-	self->surface= NULL; // not really needed, but hey
+	self->surface= NULL;
 	self->surf_data = NULL; // ditto
 #if __BIG_ENDIAN__
 	self->surf_data_be = NULL;
@@ -1624,6 +1628,10 @@ static void gl_cleanup(LV2UI_Handle handle) {
 	pthread_mutex_destroy(&self->msg_thread_lock);
 	pthread_cond_destroy(&self->data_ready);
 #endif
+	if (self->surface) {
+		cairo_surface_destroy (self->surface);
+		self->surface = NULL;
+	}
 	cleanup(self->ui);
 	posrb_free(self->rb);
 	free(self);
