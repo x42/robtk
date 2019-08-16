@@ -1520,8 +1520,7 @@ main (int argc, char** argv)
 			default:
 				// silently ignore additional session options on OSX
 #ifndef __APPLE__
-				fprintf (stderr, "invalid argument.\n");
-				print_usage ();
+				fprintf (stderr, "Invalid argument. See --help for usage information.\n");
 				return (1);
 #endif
 				break;
