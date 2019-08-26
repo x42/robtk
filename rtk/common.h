@@ -23,6 +23,14 @@
 #include <string.h>
 #include <math.h>
 
+static void get_interpolate_color (float* c, const float* c1, const float* c2, float f) {
+	assert (f >= 0.f && f <= 1.f);
+	c[0] = c1[0] + f * (c2[0] - c1[0]);
+	c[1] = c1[1] + f * (c2[1] - c1[1]);
+	c[2] = c1[2] + f * (c2[2] - c1[2]);
+	c[3] = fmax (c1[3], c2[3]);
+}
+
 static void rounded_rectangle (cairo_t* cr, double x, double y, double w, double h, double r)
 {
   double degrees = M_PI / 180.0;
