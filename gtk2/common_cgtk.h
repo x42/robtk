@@ -61,7 +61,7 @@ static void get_color_from_gtk (GdkColor *c, int which) {
 static float   robtk_colorcache[3][4];
 static bool    robtk_colorcached[3] = { false, false, false };
 
-void get_color_from_theme (int which, float *col) {
+static void get_color_from_theme (int which, float *col) {
 	GdkColor color;
 	assert(which >= 0 && which <= 2);
 
