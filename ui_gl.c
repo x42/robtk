@@ -1484,9 +1484,9 @@ gl_instantiate(const LV2UI_Descriptor*   descriptor,
 
 	if (options && map) {
 		LV2_URID atom_Long = map->map(map->handle, LV2_ATOM__Long);
-		LV2_URID atom_Int = map->map(map->handle, LV2_ATOM__Int);
 		LV2_URID transient_for = map->map (map->handle, "http://kxstudio.sf.net/ns/lv2ext/props#TransientWindowId");
 #ifdef RTK_USE_HOST_COLORS
+		LV2_URID atom_Int = map->map(map->handle, LV2_ATOM__Int);
 		LV2_URID color_fg = map->map (map->handle, "http://lv2plug.in/ns/extensions/ui#foregroundColor");
 		LV2_URID color_bg = map->map (map->handle, "http://lv2plug.in/ns/extensions/ui#backgroundColor");
 #endif
