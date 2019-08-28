@@ -168,6 +168,30 @@ static uint32_t rgba_to_hex (float *c)
 	return (rc << 24) | (gc << 16) | (bc << 8) | ac;
 }
 
+static float inv_gamma_srgb (const float v) {
+	if (v <= 0.04045) {
+		return v / 12.92;
+	} else {
+		return pow(((v + 0.055) / (1.055)), 2.4);
+	}
+}
+
+static float gamma_srgb (float v) {
+	if (v <= 0.0031308) {
+		v *= 12.92;
+	} else {
+		v = 1.055 * powf (v, 1.0 / 2.4) - 0.055;
+	}
+	return v;
+}
+
+static float luminance_rgb (float const* c) {
+	const float rY = 0.212655;
+	const float gY = 0.715158;
+	const float bY = 0.072187;
+	return gamma_srgb (rY * inv_gamma_srgb (c[0]) + gY * inv_gamma_srgb(c[1]) + bY * inv_gamma_srgb (c[2]));
+}
+
 static void rounded_rectangle (cairo_t* cr, double x, double y, double w, double h, double r)
 {
   double degrees = M_PI / 180.0;
