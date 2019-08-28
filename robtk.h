@@ -299,8 +299,8 @@ static void rect_combine(const cairo_rectangle_t *r1, const cairo_rectangle_t *r
 
 static void get_color_from_theme (int which, float *col);
 
-#include "rtk/style.h"
 #include "rtk/common.h"
+#include "rtk/style.h"
 
 #ifdef GTK_BACKEND
 
