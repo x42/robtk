@@ -61,12 +61,6 @@ static void get_color_from_theme (int which, float *col) {
 		case 1: // bg
 			memcpy (col, host_bg_color, 4 * sizeof (float));
 			break;
-		case 2: // fg alt
-			col[0] = 0;
-			col[1] = 0;
-			col[2] = 0;
-			col[3] = 1.0;
-			break;
 	}
 }
 #endif
