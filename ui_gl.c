@@ -27,8 +27,7 @@
 #endif
 #endif
 
-#define TIMED_RESHAPE // resize view when idle
-
+//#define TIMED_RESHAPE // resize view when idle
 //#define DEBUG_RESIZE
 //#define DEBUG_EXPOSURE
 //#define VISIBLE_EXPOSE
