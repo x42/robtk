@@ -68,6 +68,10 @@ static void rgba_to_hsva (float* hsva, float const* rgba) {
 				 */
 			hsva[0] = 360 + hsva[0];
 		}
+	} else {
+		hsva[0] = 0; // h
+		hsva[1] = 0; // s
+		return;
 	}
 
 	if (delta == 0 || cmax == 0) {
