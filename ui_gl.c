@@ -1053,6 +1053,15 @@ static void onFileSelected(PuglView* view, const char *filename) {
 #endif
 }
 
+static void onFocusChanged(PuglView* view, bool enter) {
+	GLrobtkLV2UI* self = (GLrobtkLV2UI*)puglGetHandle(view);
+	if (self->tl->enter_notify && enter) {
+		self->tl->enter_notify (self->tl);
+	} else if (self->tl->leave_notify && !enter) {
+		self->tl->leave_notify (self->tl);
+	}
+}
+
 static void onReshape(PuglView* view, int width, int height) {
 	GLrobtkLV2UI* self = (GLrobtkLV2UI*)puglGetHandle(view);
 	if (!self->gl_initialized) {
@@ -1278,6 +1287,10 @@ static int pugl_init(GLrobtkLV2UI* self) {
 	puglSetReshapeFunc(self->view, onReshape);
 	puglSetResizeFunc(self->view, onResize);
 	puglSetFileSelectedFunc(self->view, onFileSelected);
+
+	if (self->tl->enter_notify || self->tl->leave_notify) {
+		puglSetFocusFunc(self->view, onFocusChanged);
+	}
 
 	if (self->extui) {
 		puglSetCloseFunc(self->view, onClose);

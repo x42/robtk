@@ -117,6 +117,8 @@ __attribute__ ((visibility ("hidden")))
 - (void) rightMouseUp:(NSEvent*)event;
 - (void) otherMouseDown:(NSEvent*)event;
 - (void) otherMouseUp:(NSEvent*)event;
+- (void) mouseEntered:(NSEvent*)event;
+- (void) mouseExited:(NSEvent*)event;
 - (void) keyDown:(NSEvent*)event;
 - (void) keyUp:(NSEvent*)event;
 - (void) flagsChanged:(NSEvent*)event;
@@ -231,10 +233,16 @@ getModifiers(PuglView* view, NSEvent* ev)
 - (void)mouseEntered:(NSEvent*)theEvent
 {
 	[self updateTrackingAreas];
+	if (puglview->focusFunc) {
+		puglview->focusFunc(puglview, true);
+	}
 }
 
 - (void)mouseExited:(NSEvent*)theEvent
 {
+	if (puglview->focusFunc) {
+		puglview->focusFunc(puglview, false);
+	}
 }
 
 - (void) mouseMoved:(NSEvent*)event

@@ -181,9 +181,7 @@ puglCreate(PuglNativeWindow parent,
 
 	attr.event_mask = ExposureMask | KeyPressMask | KeyReleaseMask
 		| ButtonPressMask | ButtonReleaseMask
-#ifdef XKEYFOCUSGRAB
-		| EnterWindowMask
-#endif
+		| EnterWindowMask | LeaveWindowMask
 		| PointerMotionMask | StructureNotifyMask;
 
 	impl->win = XCreateWindow(
@@ -535,11 +533,19 @@ puglProcessEvents(PuglView* view)
 			}
 			XFree(type);
 		} break;
-#ifdef XKEYFOCUSGRAB
 		case EnterNotify:
+#ifdef XKEYFOCUSGRAB
 			XSetInputFocus(view->impl->display, view->impl->win, RevertToPointerRoot, CurrentTime);
-			break;
 #endif
+			if (view->focusFunc) {
+				view->focusFunc(view, true);
+			}
+			break;
+		case LeaveNotify:
+			if (view->focusFunc) {
+				view->focusFunc(view, false);
+			}
+			break;
 		default:
 			break;
 		}

@@ -461,6 +461,16 @@ handleMessage(PuglView* view, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 		}
 		break;
+	case WM_SETFOCUS:
+		if (view->focusFunc) {
+			view->focusFunc(view, TRUE);
+		}
+		return DefWindowProc(view->impl->hwnd, message, wParam, lParam);
+	case WM_KILLFOCUS:
+		if (view->focusFunc) {
+			view->focusFunc(view, FALSE);
+		}
+		return DefWindowProc(view->impl->hwnd, message, wParam, lParam);
 	case WM_QUIT:
 	case LOCAL_CLOSE_MSG:
 		if (view->closeFunc) {
