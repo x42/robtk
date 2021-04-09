@@ -232,7 +232,7 @@ static RobWidget* robtk_select_mousemove(RobWidget* handle, RobTkBtnEvent *ev) {
 	if (pla != d->lightarr) {
 		if (pla == 0 && d->ttip) {
 			d->ttip (d->rw, true, d->ttip_handle);
-		} else {
+		} else if (d->ttip) {
 			d->ttip (d->rw, false, d->ttip_handle);
 		}
 		d->lightarr = pla;
