@@ -153,6 +153,13 @@ puglCreate(PuglNativeWindow parent,
 #endif
 	}
 
+	if (!vi) {
+		XCloseDisplay (impl->display);
+		free(view);
+		free(impl);
+		return 0;
+	}
+
 	int glxMajor, glxMinor;
 	glXQueryVersion(impl->display, &glxMajor, &glxMinor);
 #ifdef VERBOSE_PUGL
@@ -162,6 +169,7 @@ puglCreate(PuglNativeWindow parent,
 	impl->ctx = glXCreateContext(impl->display, vi, 0, GL_TRUE);
 
 	if (!impl->ctx) {
+		XCloseDisplay (impl->display);
 		free(view);
 		free(impl);
 		return 0;
