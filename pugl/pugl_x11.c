@@ -627,5 +627,6 @@ puglUpdateGeometryConstraints(PuglView* view, int min_width, int min_height, boo
 		sizeHints.max_aspect.y=min_height;
 	}
 	XSetWMNormalHints(view->impl->display, view->impl->win, &sizeHints);
+	XFlush(view->impl->display);
 	return 0;
 }
