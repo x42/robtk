@@ -203,8 +203,12 @@ puglCreate(PuglNativeWindow parent,
 		return 0;
 	}
 
-	puglUpdateGeometryConstraints(view, min_width, min_height, min_width != width);
+	XFlush(view->impl->display);
 	XResizeWindow(view->impl->display, view->impl->win, width, height);
+	if (min_width != width) {
+		/* only call if aspect ration is to be set */
+		puglUpdateGeometryConstraints(view, min_width, min_height, min_width != width);
+	}
 
 	if (title) {
 		XStoreName(impl->display, impl->win, title);
@@ -328,6 +332,9 @@ puglResize(PuglView* view)
 	hints->flags = PMaxSize | PMinSize;
 
 	if (set_hints) {
+#ifdef VERBOSE_PUGL
+		printf ("puGL: set hints. min-size %d x %d\n", hints->min_width, hints->min_height);
+#endif
 		XSetWMNormalHints(view->impl->display, view->impl->win, hints);
 	}
 	XResizeWindow(view->impl->display, view->impl->win, view->width, view->height);
@@ -612,6 +619,9 @@ puglUpdateGeometryConstraints(PuglView* view, int min_width, int min_height, boo
 	if (!view->set_window_hints) {
 		return -1;
 	}
+#ifdef VERBOSE_PUGL
+	printf ("puGL UpdateGeometryConstraints %d x %d aspect:%d\n", min_width, min_height, aspect);
+#endif
 	XSizeHints sizeHints;
 	memset(&sizeHints, 0, sizeof(sizeHints));
 	sizeHints.flags      = PMinSize|PMaxSize;
