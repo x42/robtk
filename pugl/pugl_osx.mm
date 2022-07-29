@@ -18,7 +18,9 @@
    @file pugl_osx.m OSX/Cocoa Pugl Implementation.
 */
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <sys/sysctl.h>
 
 #import <Cocoa/Cocoa.h>
 
@@ -29,6 +31,22 @@
 #define XCONCAT(A,B) CONCAT(A,B)
 #define RobTKPuglWindow XCONCAT(RobTKPuglWindow, UINQHACK)
 #define RobTKPuglOpenGLView XCONCAT(RobTKPuglOpenGLView, UINQHACK)
+
+static int
+macOS_Version ()
+{
+	/* ideally we'd use (__builtin_available(macOS 10.7, *)), but that's n/a for old gcc builds */
+	static short int version[3] = {0, 0, 0};
+	if (0 == version[0]) {
+		version[0] = -1;
+		char buf[256];
+		size_t sz = sizeof (buf);
+		if (0 == sysctlbyname ("kern.osrelease", buf, &sz, NULL, 0)) {
+			sscanf (buf, "%hd.%hd.%hd", &version[0], &version[1], &version[2]);
+		}
+	}
+	return version[0];
+}
 
 __attribute__ ((visibility ("hidden")))
 @interface RobTKPuglWindow : NSWindow
@@ -150,6 +168,18 @@ __attribute__ ((visibility ("hidden")))
 	}
 
 	if (self) {
+#ifdef ROBTK_UPSCALE
+		if (macOS_Version () >= 11 /* 10.7 Lion */) {
+			[self setWantsBestResolutionOpenGLSurface:YES];
+			[self setWantsLayer:YES];
+		}
+#else /* no upscale */
+#  if defined(MAC_OS_X_VERSION_10_15) && MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_15
+		/* macOS 10.5 switched the default to YES (compile time) */
+		[self setWantsBestResolutionOpenGLSurface:NO];
+#  endif
+#endif
+
 		[[self openGLContext] makeCurrentContext];
 		[self reshape];
 		[NSOpenGLContext clearCurrentContext];
@@ -159,6 +189,7 @@ __attribute__ ((visibility ("hidden")))
 
 - (void) reshape
 {
+	[super reshape];
 	[[self openGLContext] update];
 
 	NSRect bounds = [self bounds];
@@ -449,6 +480,29 @@ puglCreate(PuglNativeWindow parent,
 		[window makeFirstResponder:impl->glview];
 		[window makeKeyAndOrderFront:window];
 	}
+
+
+#ifdef ROBTK_UPSCALE
+	struct ValueProxy {
+		ValueProxy () : _f (1.0) {}
+		void set_value (CGFloat f) {
+			_f = f;
+		}
+		void set_value (id) { }
+		float _f;
+	} p;
+
+	if (macOS_Version () >= 11 /* 10.7 Lion */) {
+		if ([impl->glview window]) {
+			p.set_value ([[impl->glview window] backingScaleFactor]);
+		} else if (parent) {
+			NSView* pview = (NSView*) parent;
+			p.set_value ([[pview window] backingScaleFactor]);
+		} else {
+			p.set_value ([[NSScreen mainScreen] backingScaleFactor]);
+		}
+	}
+#endif
 	return view;
 }
 
