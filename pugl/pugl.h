@@ -274,6 +274,12 @@ PUGL_API uint32_t
 puglGetEventTimestamp(PuglView* view);
 
 /**
+   Return the hardware backing scale
+*/
+PUGL_API float
+puglGetHWSurfaceScale(PuglView* view);
+
+/**
    Get the currently active modifiers (PuglMod flags).
 
    This should only be called from an event handler.

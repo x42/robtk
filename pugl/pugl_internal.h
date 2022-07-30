@@ -54,6 +54,7 @@ struct PuglViewImpl {
 	bool     set_window_hints;
 	bool     ontop;
 	bool     resize;
+	float    ui_scale;
 	uint32_t event_timestamp_ms;
 };
 
@@ -73,6 +74,12 @@ uint32_t
 puglGetEventTimestamp(PuglView* view)
 {
 	return view->event_timestamp_ms;
+}
+
+float
+puglGetHWSurfaceScale(PuglView* view)
+{
+	return view->ui_scale;;
 }
 
 int

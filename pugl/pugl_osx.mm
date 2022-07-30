@@ -430,6 +430,7 @@ puglCreate(PuglNativeWindow parent,
 	view->width  = width;
 	view->height = height;
 	view->ontop  = ontop;
+	view->ui_scale  = 1.0;
 	view->user_resizable = resizable; // unused
 
 	[NSAutoreleasePool new];
@@ -500,6 +501,9 @@ puglCreate(PuglNativeWindow parent,
 			p.set_value ([[pview window] backingScaleFactor]);
 		} else {
 			p.set_value ([[NSScreen mainScreen] backingScaleFactor]);
+		}
+		if (p._f >= 1.f && p._f <= 4.f) {
+			view->ui_scale = p._f;
 		}
 	}
 #endif

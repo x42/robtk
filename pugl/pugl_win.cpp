@@ -75,6 +75,7 @@ puglCreate(PuglNativeWindow parent,
 	view->width  = width;
 	view->height = height;
 	view->ontop  = ontop;
+	view->ui_scale  = 1.0;
 	view->user_resizable = resizable && !parent;
 	view->impl->keep_aspect = min_width != width;
 
