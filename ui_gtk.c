@@ -48,7 +48,7 @@ static int robtk_open_file_dialog(void *h, const char *title) {
 	return -1; // TODO
 }
 
-static void robwidget_toplevel_enable_scaling (RobWidget* rw) {
+static void robwidget_toplevel_enable_scaling (RobWidget* rw, void (*cb) (RobWidget* w, void* h), void* handle) {
 	;
 }
 static void robtk_queue_scale_change (RobWidget *rw, const float ws) {
