@@ -322,6 +322,15 @@ static void get_color_from_theme (int which, float *col);
 
 #endif
 
+// TODO ideally use cached max of puglGetHWSurfaceScale
+#ifdef ROBTK_UPSCALE
+#define RTK_SCALE_MUL 2.0
+#define RTK_SCALE_DIV 0.5
+#else
+#define RTK_SCALE_MUL 1.0
+#define RTK_SCALE_DIV 1.0
+#endif
+
 #define C_RAD 5
 
 #include "widgets/robtk_checkbutton.h"
