@@ -404,7 +404,7 @@ static void rtk_open_url (const char *url) {
 	rtk_osx_open_url (url);
 #else
 	char tmp[1024];
-	sprintf(tmp, "xdg-open %s &", url);
+	sprintf(tmp, "LD_LIBRARY_PATH="" xdg-open %s &", url);
 	(void) system (tmp);
 #endif
 }
