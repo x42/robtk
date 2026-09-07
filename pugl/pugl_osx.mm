@@ -147,12 +147,12 @@ __attribute__ ((visibility ("hidden")))
 
 - (id) initWithFrame:(NSRect)frame
 {
-	NSOpenGLPixelFormatAttribute pixelAttribs[16] = {
+	NSOpenGLPixelFormatAttribute pixelAttribs[17] = {
 		NSOpenGLPFADoubleBuffer,
 		NSOpenGLPFAAccelerated,
 		NSOpenGLPFAColorSize, 32,
 		NSOpenGLPFADepthSize, 32,
-		NSOpenGLPFAMultisample,
+		NSOpenGLPFAMultisample, 1,
 		NSOpenGLPFASampleBuffers, 1,
 		NSOpenGLPFASamples, 4,
 		0

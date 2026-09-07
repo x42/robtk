@@ -910,7 +910,7 @@ static void reallocate_canvas(GLrobtkLV2UI* self) {
 	float hw_scale = puglGetHWSurfaceScale(self->view);
 #endif
 #ifdef DEBUG_RESIZE
-	printf("reallocate_canvas to %d x %d\n", self->width, self->height);
+	printf("reallocate_canvas to %d x %d scale: %f\n", self->width, self->height, hw_scale);
 #endif
 	self->queue_canvas_realloc = false;
 	if (self->cr) {
@@ -950,6 +950,11 @@ onRealReshape(PuglView* view, int width, int height)
 	printf("onRealReshape (%s) %dx%d\n",
 			ROBWIDGET_NAME(self->tl), width, height);
 #endif
+#if __BIG_ENDIAN__
+	float hw_scale = 1.0;
+#else
+	float hw_scale = puglGetHWSurfaceScale(self->view);
+#endif
 	switch(plugin_scale_mode(self->ui)) {
 		case LVGL_LAYOUT_TO_FIT:
 			self->xoff = 0; self->yoff = 0; self->xyscale = 1.0;
@@ -975,7 +980,7 @@ onRealReshape(PuglView* view, int width, int height)
 			rtoplevel_cache(self->tl, TRUE); // redraw background
 			if (self->width == width && self->height == height) {
 	self->xoff = 0; self->yoff = 0; self->xyscale = 1.0;
-	glViewport (0, 0, self->width, self->height);
+	glViewport (0, 0, hw_scale * self->width, hw_scale * self->height);
 			} else
 			{
 	reallocate_canvas(self);
@@ -991,7 +996,7 @@ onRealReshape(PuglView* view, int width, int height)
 		self->xoff = (width - self->width / self->xyscale)/2;
 		self->yoff = (height - self->height / self->xyscale)/2;
 	}
-	glViewport (self->xoff, self->yoff, self->width / self->xyscale, self->height / self->xyscale);
+	glViewport (hw_scale * self->xoff, hw_scale * self->yoff, hw_scale * self->width / self->xyscale, hw_scale * self->height / self->xyscale);
 			}
 			break;
 		case LVGL_CENTER:
@@ -999,14 +1004,14 @@ onRealReshape(PuglView* view, int width, int height)
 	self->xyscale = 1.0;
 	self->xoff = (width - self->width)/2;
 	self->yoff = (height - self->height)/2;
-	glViewport (self->xoff, self->yoff, self->width, self->height);
+	glViewport (hw_scale * self->xoff, hw_scale * self->yoff, hw_scale * self->width, hw_scale * self->height);
 
 			}
 			break;
 		case LVGL_TOP_LEFT:
 			{
 	self->xoff = 0; self->yoff = 0; self->xyscale = 1.0;
-	glViewport (0, (height - self->height), self->width, self->height);
+	glViewport (0, hw_scale * (height - self->height), hw_scale * self->width, hw_scale * self->height);
 			}
 			break;
 	}
