@@ -58,7 +58,9 @@ ROBGTK = $(RW)robtk.mk $(UITOOLKIT) $(RW)ui_gtk.c \
   $(RW)gtk2/common_cgtk.h $(RW)gtk2/robwidget_gtk.h $(RW)robtk.h \
 	$(RT)common.h $(RT)style.h
 
-%UI_gtk.so %UI_gtk.dylib:: $(ROBGTK)
+.SECONDEXPANSION:
+
+%UI_gtk.so %UI_gtk.dylib:: $(ROBGTK) gui/$$(*F).c
 	@mkdir -p $(@D)
 	$(CXX) $(CPPFLAGS) $(CFLAGS) $(GTKUICFLAGS) $(PTHREADCFLAGS) \
 	  -DPLUGIN_SOURCE="\"gui/$(*F).c\"" \
@@ -67,7 +69,7 @@ ROBGTK = $(RW)robtk.mk $(UITOOLKIT) $(RW)ui_gtk.c \
 	  -shared $(LV2LDFLAGS) $(LDFLAGS) $(GTKUILIBS)
 	$(STRIP) ${LIBSTRIPFLAGS} $@
 
-%UI_gl.o:: $(ROBGL)
+%UI_gl.o:: $(ROBGL) gui/$$(*F).c
 	@mkdir -p $(@D)
 	$(CXX) -c $(CPPFLAGS) $(CFLAGS) $(GLUICFLAGS) $(PTHREADCFLAGS) \
 	  -DUINQHACK="$(shell date +%s$$$$)" \
@@ -81,7 +83,7 @@ ROBGTK = $(RW)robtk.mk $(UITOOLKIT) $(RW)ui_gtk.c \
 	  -DUINQHACK="$(shell date +%s$$$$)" \
 	  -o $@ $(PUGL_SRC)
 
-%_glui.so %_glui.dylib %_glui.dll::
+%_glui.so %_glui.dylib %_glui.dll:: gui/$$(*F).c
 	@mkdir -p $(@D)
 	$(CXX) $(CPPFLAGS) $(CFLAGS) $(GLUICFLAGS) $(PTHREADCFLAGS) \
 	  -o $@ gui/$(*F).c \
@@ -91,7 +93,7 @@ ROBGTK = $(RW)robtk.mk $(UITOOLKIT) $(RW)ui_gtk.c \
 	$(STRIP) ${LIBSTRIPFLAGS} $@
 
 
-%UI_gl.so %UI_gl.dylib %UI_gl.dll:: $(ROBGL)
+%UI_gl.so %UI_gl.dylib %UI_gl.dll:: $(ROBGL) gui/$$(*F).c
 	@mkdir -p $(@D)
 	$(CXX) $(CPPFLAGS) $(CFLAGS) $(GLUICFLAGS) $(PTHREADCFLAGS) \
 	  -DUINQHACK="$(shell date +%s$$$$)" \
